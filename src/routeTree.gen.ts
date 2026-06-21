@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as UploadRouteImport } from './routes/upload'
+import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as IntelligenceRouteImport } from './routes/intelligence'
 import { Route as FarmersRouteImport } from './routes/farmers'
 import { Route as DataQualityRouteImport } from './routes/data-quality'
@@ -18,6 +19,11 @@ import { Route as IndexRouteImport } from './routes/index'
 const UploadRoute = UploadRouteImport.update({
   id: '/upload',
   path: '/upload',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IntelligenceRoute = IntelligenceRouteImport.update({
@@ -46,6 +52,7 @@ export interface FileRoutesByFullPath {
   '/data-quality': typeof DataQualityRoute
   '/farmers': typeof FarmersRoute
   '/intelligence': typeof IntelligenceRoute
+  '/settings': typeof SettingsRoute
   '/upload': typeof UploadRoute
 }
 export interface FileRoutesByTo {
@@ -53,6 +60,7 @@ export interface FileRoutesByTo {
   '/data-quality': typeof DataQualityRoute
   '/farmers': typeof FarmersRoute
   '/intelligence': typeof IntelligenceRoute
+  '/settings': typeof SettingsRoute
   '/upload': typeof UploadRoute
 }
 export interface FileRoutesById {
@@ -61,19 +69,33 @@ export interface FileRoutesById {
   '/data-quality': typeof DataQualityRoute
   '/farmers': typeof FarmersRoute
   '/intelligence': typeof IntelligenceRoute
+  '/settings': typeof SettingsRoute
   '/upload': typeof UploadRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/data-quality' | '/farmers' | '/intelligence' | '/upload'
+  fullPaths:
+    | '/'
+    | '/data-quality'
+    | '/farmers'
+    | '/intelligence'
+    | '/settings'
+    | '/upload'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/data-quality' | '/farmers' | '/intelligence' | '/upload'
+  to:
+    | '/'
+    | '/data-quality'
+    | '/farmers'
+    | '/intelligence'
+    | '/settings'
+    | '/upload'
   id:
     | '__root__'
     | '/'
     | '/data-quality'
     | '/farmers'
     | '/intelligence'
+    | '/settings'
     | '/upload'
   fileRoutesById: FileRoutesById
 }
@@ -82,6 +104,7 @@ export interface RootRouteChildren {
   DataQualityRoute: typeof DataQualityRoute
   FarmersRoute: typeof FarmersRoute
   IntelligenceRoute: typeof IntelligenceRoute
+  SettingsRoute: typeof SettingsRoute
   UploadRoute: typeof UploadRoute
 }
 
@@ -92,6 +115,13 @@ declare module '@tanstack/react-router' {
       path: '/upload'
       fullPath: '/upload'
       preLoaderRoute: typeof UploadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/intelligence': {
@@ -130,6 +160,7 @@ const rootRouteChildren: RootRouteChildren = {
   DataQualityRoute: DataQualityRoute,
   FarmersRoute: FarmersRoute,
   IntelligenceRoute: IntelligenceRoute,
+  SettingsRoute: SettingsRoute,
   UploadRoute: UploadRoute,
 }
 export const routeTree = rootRouteImport
