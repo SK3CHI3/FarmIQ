@@ -10,11 +10,17 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as FarmersRouteImport } from './routes/farmers'
+import { Route as DataQualityRouteImport } from './routes/data-quality'
 import { Route as IndexRouteImport } from './routes/index'
 
 const FarmersRoute = FarmersRouteImport.update({
   id: '/farmers',
   path: '/farmers',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DataQualityRoute = DataQualityRouteImport.update({
+  id: '/data-quality',
+  path: '/data-quality',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -25,27 +31,31 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/data-quality': typeof DataQualityRoute
   '/farmers': typeof FarmersRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/data-quality': typeof DataQualityRoute
   '/farmers': typeof FarmersRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/data-quality': typeof DataQualityRoute
   '/farmers': typeof FarmersRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/farmers'
+  fullPaths: '/' | '/data-quality' | '/farmers'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/farmers'
-  id: '__root__' | '/' | '/farmers'
+  to: '/' | '/data-quality' | '/farmers'
+  id: '__root__' | '/' | '/data-quality' | '/farmers'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  DataQualityRoute: typeof DataQualityRoute
   FarmersRoute: typeof FarmersRoute
 }
 
@@ -56,6 +66,13 @@ declare module '@tanstack/react-router' {
       path: '/farmers'
       fullPath: '/farmers'
       preLoaderRoute: typeof FarmersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/data-quality': {
+      id: '/data-quality'
+      path: '/data-quality'
+      fullPath: '/data-quality'
+      preLoaderRoute: typeof DataQualityRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -70,6 +87,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  DataQualityRoute: DataQualityRoute,
   FarmersRoute: FarmersRoute,
 }
 export const routeTree = rootRouteImport
