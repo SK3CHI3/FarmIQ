@@ -9,10 +9,16 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as IntelligenceRouteImport } from './routes/intelligence'
 import { Route as FarmersRouteImport } from './routes/farmers'
 import { Route as DataQualityRouteImport } from './routes/data-quality'
 import { Route as IndexRouteImport } from './routes/index'
 
+const IntelligenceRoute = IntelligenceRouteImport.update({
+  id: '/intelligence',
+  path: '/intelligence',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const FarmersRoute = FarmersRouteImport.update({
   id: '/farmers',
   path: '/farmers',
@@ -33,34 +39,45 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/data-quality': typeof DataQualityRoute
   '/farmers': typeof FarmersRoute
+  '/intelligence': typeof IntelligenceRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/data-quality': typeof DataQualityRoute
   '/farmers': typeof FarmersRoute
+  '/intelligence': typeof IntelligenceRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/data-quality': typeof DataQualityRoute
   '/farmers': typeof FarmersRoute
+  '/intelligence': typeof IntelligenceRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/data-quality' | '/farmers'
+  fullPaths: '/' | '/data-quality' | '/farmers' | '/intelligence'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/data-quality' | '/farmers'
-  id: '__root__' | '/' | '/data-quality' | '/farmers'
+  to: '/' | '/data-quality' | '/farmers' | '/intelligence'
+  id: '__root__' | '/' | '/data-quality' | '/farmers' | '/intelligence'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DataQualityRoute: typeof DataQualityRoute
   FarmersRoute: typeof FarmersRoute
+  IntelligenceRoute: typeof IntelligenceRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/intelligence': {
+      id: '/intelligence'
+      path: '/intelligence'
+      fullPath: '/intelligence'
+      preLoaderRoute: typeof IntelligenceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/farmers': {
       id: '/farmers'
       path: '/farmers'
@@ -89,6 +106,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DataQualityRoute: DataQualityRoute,
   FarmersRoute: FarmersRoute,
+  IntelligenceRoute: IntelligenceRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
