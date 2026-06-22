@@ -64,7 +64,7 @@ function Dashboard() {
     records: s.records,
   }));
   const chartConfig = {
-    completeness: { label: "Completeness %", color: "hsl(var(--primary))" },
+    completeness: { label: "Completeness %", color: "var(--primary)" },
   } satisfies ChartConfig;
   return (
     <div>
