@@ -7,6 +7,8 @@ import {
   Upload,
   Settings,
   Leaf,
+  BarChart3,
+  Plug,
 } from "lucide-react";
 
 import {
@@ -24,9 +26,11 @@ import {
 
 const items = [
   { title: "Dashboard", url: "/", icon: LayoutGrid },
+  { title: "Analytics", url: "/analytics", icon: BarChart3 },
   { title: "Farmer Records", url: "/farmers", icon: Users },
   { title: "Data Quality", url: "/data-quality", icon: ShieldCheck },
   { title: "Intelligence", url: "/intelligence", icon: Sparkles },
+  { title: "Connections", url: "/connections", icon: Plug },
   { title: "Upload", url: "/upload", icon: Upload },
   { title: "Settings", url: "/settings", icon: Settings },
 ];

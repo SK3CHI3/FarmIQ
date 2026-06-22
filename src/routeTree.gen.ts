@@ -14,6 +14,8 @@ import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as IntelligenceRouteImport } from './routes/intelligence'
 import { Route as FarmersRouteImport } from './routes/farmers'
 import { Route as DataQualityRouteImport } from './routes/data-quality'
+import { Route as ConnectionsRouteImport } from './routes/connections'
+import { Route as AnalyticsRouteImport } from './routes/analytics'
 import { Route as IndexRouteImport } from './routes/index'
 
 const UploadRoute = UploadRouteImport.update({
@@ -41,6 +43,16 @@ const DataQualityRoute = DataQualityRouteImport.update({
   path: '/data-quality',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ConnectionsRoute = ConnectionsRouteImport.update({
+  id: '/connections',
+  path: '/connections',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AnalyticsRoute = AnalyticsRouteImport.update({
+  id: '/analytics',
+  path: '/analytics',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -49,6 +61,8 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/analytics': typeof AnalyticsRoute
+  '/connections': typeof ConnectionsRoute
   '/data-quality': typeof DataQualityRoute
   '/farmers': typeof FarmersRoute
   '/intelligence': typeof IntelligenceRoute
@@ -57,6 +71,8 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/analytics': typeof AnalyticsRoute
+  '/connections': typeof ConnectionsRoute
   '/data-quality': typeof DataQualityRoute
   '/farmers': typeof FarmersRoute
   '/intelligence': typeof IntelligenceRoute
@@ -66,6 +82,8 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/analytics': typeof AnalyticsRoute
+  '/connections': typeof ConnectionsRoute
   '/data-quality': typeof DataQualityRoute
   '/farmers': typeof FarmersRoute
   '/intelligence': typeof IntelligenceRoute
@@ -76,6 +94,8 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/analytics'
+    | '/connections'
     | '/data-quality'
     | '/farmers'
     | '/intelligence'
@@ -84,6 +104,8 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/analytics'
+    | '/connections'
     | '/data-quality'
     | '/farmers'
     | '/intelligence'
@@ -92,6 +114,8 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/analytics'
+    | '/connections'
     | '/data-quality'
     | '/farmers'
     | '/intelligence'
@@ -101,6 +125,8 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AnalyticsRoute: typeof AnalyticsRoute
+  ConnectionsRoute: typeof ConnectionsRoute
   DataQualityRoute: typeof DataQualityRoute
   FarmersRoute: typeof FarmersRoute
   IntelligenceRoute: typeof IntelligenceRoute
@@ -145,6 +171,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DataQualityRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/connections': {
+      id: '/connections'
+      path: '/connections'
+      fullPath: '/connections'
+      preLoaderRoute: typeof ConnectionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/analytics': {
+      id: '/analytics'
+      path: '/analytics'
+      fullPath: '/analytics'
+      preLoaderRoute: typeof AnalyticsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -157,6 +197,8 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AnalyticsRoute: AnalyticsRoute,
+  ConnectionsRoute: ConnectionsRoute,
   DataQualityRoute: DataQualityRoute,
   FarmersRoute: FarmersRoute,
   IntelligenceRoute: IntelligenceRoute,
