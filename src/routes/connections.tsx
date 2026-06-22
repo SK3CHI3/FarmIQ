@@ -4,9 +4,16 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { PageHeader } from "@/components/page-header";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
+} from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Database, FileSpreadsheet, Cloud, Webhook, Network, MessageSquare, Plug,
-  CheckCircle2, RefreshCw,
+  CheckCircle2, RefreshCw, Settings2, Copy,
 } from "lucide-react";
 
 export const Route = createFileRoute("/connections")({
@@ -51,9 +58,7 @@ function ConnectionsPage() {
         title="Connections"
         description="Wire FarmIQ to your data sources — graph DB, warehouses, sheets, and APIs."
         actions={
-          <Button>
-            <Plug className="h-4 w-4 mr-2" /> Add connection
-          </Button>
+          <AddConnectionDialog />
         }
       />
 
@@ -100,9 +105,10 @@ function ConnectionsPage() {
                       <RefreshCw className="h-3 w-3 mr-1" /> Sync now
                     </Button>
                   </div>
+                  <ConfigureConnectionDialog name={c.name} />
                 </div>
               ) : (
-                <Button variant="outline" size="sm" className="w-full">Connect</Button>
+                <ConnectDialog name={c.name} />
               )}
             </CardContent>
           </Card>
@@ -132,5 +138,140 @@ function ConnectionsPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+function AddConnectionDialog() {
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button><Plug className="h-4 w-4 mr-2" /> Add connection</Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Add a new connection</DialogTitle>
+          <DialogDescription>Pick a connector and provide credentials. We'll test the connection before saving.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="grid grid-cols-3 gap-2">
+            {["Neo4j", "Postgres", "S3", "Webhook", "Sheets", "Custom API"].map((t) => (
+              <button key={t} className="rounded-md border bg-muted/30 hover:bg-primary-soft hover:border-primary/30 px-3 py-2 text-xs font-medium transition">
+                {t}
+              </button>
+            ))}
+          </div>
+          <div>
+            <Label className="text-xs">Connection name</Label>
+            <Input className="mt-1.5 h-9" placeholder="e.g. Production Neo4j" />
+          </div>
+          <div>
+            <Label className="text-xs">Endpoint URL</Label>
+            <Input className="mt-1.5 h-9" placeholder="bolt://graph.example.com:7687" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Username</Label>
+              <Input className="mt-1.5 h-9" />
+            </div>
+            <div>
+              <Label className="text-xs">Password / token</Label>
+              <Input type="password" className="mt-1.5 h-9" />
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline">Test connection</Button>
+          <Button>Save connection</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ConnectDialog({ name }: { name: string }) {
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm" className="w-full">Connect</Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Connect {name}</DialogTitle>
+          <DialogDescription>Enter the credentials needed to authenticate with {name}.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <Label className="text-xs">API key / token</Label>
+            <Input type="password" className="mt-1.5 h-9" placeholder="sk-…" />
+          </div>
+          <div>
+            <Label className="text-xs">Endpoint (optional)</Label>
+            <Input className="mt-1.5 h-9" />
+          </div>
+          <div className="flex items-center justify-between rounded-md border bg-muted/30 px-3 py-2">
+            <span className="text-xs text-muted-foreground">Auto-sync every 15 min</span>
+            <Switch defaultChecked />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button>Connect</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ConfigureConnectionDialog({ name }: { name: string }) {
+  const endpoint = `https://api.farmiq.io/v1/sync/${name.toLowerCase().replace(/[^a-z]+/g, "-")}`;
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button variant="ghost" size="sm" className="h-7 text-xs w-full justify-start text-muted-foreground hover:text-foreground">
+          <Settings2 className="h-3 w-3 mr-1.5" /> Configure
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{name}</DialogTitle>
+          <DialogDescription>Manage credentials, sync schedule and field mapping.</DialogDescription>
+        </DialogHeader>
+        <Tabs defaultValue="general">
+          <TabsList className="w-full">
+            <TabsTrigger value="general" className="flex-1">General</TabsTrigger>
+            <TabsTrigger value="mapping" className="flex-1">Mapping</TabsTrigger>
+            <TabsTrigger value="logs" className="flex-1">Logs</TabsTrigger>
+          </TabsList>
+          <TabsContent value="general" className="space-y-3 mt-4">
+            <div>
+              <Label className="text-xs">Endpoint</Label>
+              <div className="mt-1.5 flex gap-2">
+                <Input value={endpoint} readOnly className="h-9 font-mono text-xs" />
+                <Button variant="outline" size="icon" className="h-9 w-9"><Copy className="h-3.5 w-3.5" /></Button>
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs">Sync interval</Label>
+              <Input className="mt-1.5 h-9" defaultValue="Every 15 minutes" />
+            </div>
+            <div className="flex items-center justify-between rounded-md border bg-muted/30 px-3 py-2">
+              <span className="text-xs">Notify on sync failure</span>
+              <Switch defaultChecked />
+            </div>
+          </TabsContent>
+          <TabsContent value="mapping" className="mt-4">
+            <Textarea rows={6} defaultValue={'{\n  "farmer_id": "id",\n  "full_name": "name",\n  "region": "location.region"\n}'} className="font-mono text-xs" />
+          </TabsContent>
+          <TabsContent value="logs" className="mt-4 space-y-2">
+            {["12:04 — Sync complete · 340 records", "11:49 — Sync complete · 12 records", "11:34 — Auth refreshed", "11:19 — Sync complete · 0 records"].map((l) => (
+              <div key={l} className="text-xs font-mono text-muted-foreground border-l-2 border-primary/30 pl-2 py-1">{l}</div>
+            ))}
+          </TabsContent>
+        </Tabs>
+        <DialogFooter>
+          <Button variant="outline">Disconnect</Button>
+          <Button>Save changes</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

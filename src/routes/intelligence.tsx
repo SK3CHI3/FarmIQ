@@ -6,6 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Sparkles, Download, BookmarkPlus } from "lucide-react";
 import { PageHeader, CompletenessBar } from "@/components/page-header";
 import { farmers, suggestedQueries } from "@/data/sample";
+import { FarmerSheet } from "@/components/farmer-sheet";
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 export const Route = createFileRoute("/intelligence")({
   head: () => ({
@@ -75,8 +81,9 @@ function IntelligencePage() {
                 </thead>
                 <tbody>
                   {result.slice(0, 6).map((f) => (
-                    <tr key={f.id} className="border-b last:border-0">
-                      <td className="px-4 py-2.5 font-medium">{f.name}</td>
+                    <FarmerSheet key={f.id} farmer={f}>
+                    <tr className="border-b last:border-0 cursor-pointer hover:bg-muted/30">
+                      <td className="px-4 py-2.5 font-medium text-primary">{f.name}</td>
                       <td className="px-4 py-2.5 text-muted-foreground">{f.region}</td>
                       <td className="px-4 py-2.5 text-muted-foreground">{f.crop}</td>
                       <td className="px-4 py-2.5"><CompletenessBar value={f.completeness} /></td>
@@ -84,6 +91,7 @@ function IntelligencePage() {
                         <span className="text-xs text-destructive">No insurance linked</span>
                       </td>
                     </tr>
+                    </FarmerSheet>
                   ))}
                 </tbody>
               </table>
@@ -97,7 +105,7 @@ function IntelligencePage() {
                 <a className="text-primary underline-offset-2 hover:underline">Kenya Farmers Registry</a>.
               </p>
               <div className="flex gap-2">
-                <Button variant="outline" size="sm"><BookmarkPlus className="h-3.5 w-3.5 mr-1.5" /> Save insight</Button>
+                <SaveInsightDialog query={query} />
                 <Button variant="outline" size="sm"><Download className="h-3.5 w-3.5 mr-1.5" /> Export CSV</Button>
               </div>
             </div>
@@ -115,14 +123,60 @@ function IntelligencePage() {
               "Cooperative coverage by county",
               "Consent backlog (rolling)",
             ].map((s) => (
-              <div key={s} className="rounded-md border bg-muted/30 px-3 py-2 hover:bg-primary-soft transition cursor-pointer">
-                <div className="font-medium text-foreground text-[13px]">{s}</div>
-                <div className="text-[11px] text-muted-foreground mt-0.5">Refreshed yesterday</div>
-              </div>
+              <SavedInsightDialog key={s} title={s} />
             ))}
           </CardContent>
         </Card>
       </div>
     </div>
+  );
+}
+
+function SaveInsightDialog({ query }: { query: string }) {
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm"><BookmarkPlus className="h-3.5 w-3.5 mr-1.5" /> Save insight</Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Save this insight</DialogTitle>
+          <DialogDescription>Saved insights re-run automatically and appear on your dashboard.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div><Label className="text-xs">Title</Label><Input className="mt-1.5 h-9" defaultValue="Machakos maize · insurance gap" /></div>
+          <div><Label className="text-xs">Query</Label><Textarea rows={3} className="mt-1.5 text-xs font-mono" defaultValue={query || "Which farmers in Machakos are maize-ready but have no insurance coverage?"} /></div>
+          <div><Label className="text-xs">Refresh</Label>
+            <Input className="mt-1.5 h-9" defaultValue="Daily at 06:00" /></div>
+        </div>
+        <DialogFooter><Button>Save insight</Button></DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function SavedInsightDialog({ title }: { title: string }) {
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <button className="w-full text-left rounded-md border bg-muted/30 px-3 py-2 hover:bg-primary-soft transition cursor-pointer">
+          <div className="font-medium text-foreground text-[13px]">{title}</div>
+          <div className="text-[11px] text-muted-foreground mt-0.5">Refreshed yesterday</div>
+        </button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>Last refreshed yesterday at 06:00 · 47 matching farmers</DialogDescription>
+        </DialogHeader>
+        <div className="rounded-md border bg-muted/30 p-3 text-xs font-mono">
+          MATCH (f:Farmer)-[:GROWS]-&gt;(c:Crop) WHERE c.name = 'Maize' AND NOT (f)-[:HAS_PRODUCT]-&gt;(:Insurance) RETURN f LIMIT 50
+        </div>
+        <DialogFooter>
+          <Button variant="outline">Delete</Button>
+          <Button>Open insight</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
