@@ -47,7 +47,7 @@ function AnalyticsPage() {
     const avg = Math.round(list.reduce((a, f) => a + f.completeness, 0) / list.length);
     const creditReady = list.filter((f) => f.credit === "ready").length;
     const insuranceReady = list.filter((f) => f.insurance === "ready").length;
-    return { country: c, Completeness: avg, "Credit ready %": Math.round((creditReady / list.length) * 100), "Insurance ready %": Math.round((insuranceReady / list.length) * 100) };
+    return { country: c, completeness: avg, creditReady: Math.round((creditReady / list.length) * 100), insuranceReady: Math.round((insuranceReady / list.length) * 100) };
   });
 
   const readinessRadar = countries.map((c) => {
@@ -75,9 +75,9 @@ function AnalyticsPage() {
   } satisfies ChartConfig;
 
   const countryConfig = {
-    Completeness: { label: "Completeness", color: "var(--primary)" },
-    "Credit ready %": { label: "Credit ready", color: "oklch(0.7 0.15 200)" },
-    "Insurance ready %": { label: "Insurance ready", color: "oklch(0.68 0.16 50)" },
+    completeness: { label: "Completeness", color: "var(--primary)" },
+    creditReady: { label: "Credit ready %", color: "oklch(0.7 0.15 200)" },
+    insuranceReady: { label: "Insurance ready %", color: "oklch(0.68 0.16 50)" },
   } satisfies ChartConfig;
 
   const radarConfig = {
@@ -162,9 +162,9 @@ function AnalyticsPage() {
                   <YAxis tickLine={false} axisLine={false} fontSize={11} domain={[0, 100]} />
                   <ChartTooltip content={<ChartTooltipContent />} />
                   <Legend />
-                  <Bar dataKey="Completeness" fill="var(--color-Completeness)" radius={[6, 6, 0, 0]} />
-                  <Bar dataKey="Credit ready %" fill="var(--color-Credit ready %)" radius={[6, 6, 0, 0]} />
-                  <Bar dataKey="Insurance ready %" fill="var(--color-Insurance ready %)" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="completeness" fill="var(--color-completeness)" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="creditReady" fill="var(--color-creditReady)" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="insuranceReady" fill="var(--color-insuranceReady)" radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ChartContainer>
             </CardContent>
