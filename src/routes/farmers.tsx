@@ -6,6 +6,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { MapPin, Eye, Flag, Search } from "lucide-react";
 import { PageHeader, CompletenessBar, StatusBadge } from "@/components/page-header";
 import { farmers } from "@/data/sample";
+import { FarmerSheet } from "@/components/farmer-sheet";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export const Route = createFileRoute("/farmers")({
   head: () => ({
@@ -106,12 +111,30 @@ function FarmersPage() {
                   <td className="px-5 py-3 text-muted-foreground text-xs">{f.lastUpdated}</td>
                   <td className="px-5 py-3">
                     <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" title="View profile">
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" title="Flag for review">
-                        <Flag className="h-4 w-4" />
-                      </Button>
+                      <FarmerSheet farmer={f}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" title="View profile">
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </FarmerSheet>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" title="Flag for review">
+                            <Flag className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Flag {f.name} for review?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This record will be queued for a data steward to verify. The farmer will not be exported to third parties until reviewed.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction>Flag record</AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </div>
                   </td>
                 </tr>
