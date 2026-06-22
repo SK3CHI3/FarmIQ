@@ -4,6 +4,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { PageHeader } from "@/components/page-header";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({
@@ -60,7 +69,7 @@ function SettingsPage() {
       <Card className="shadow-none border mt-6">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-base">Team members</CardTitle>
-          <Button size="sm">Invite member</Button>
+          <InviteMemberDialog />
         </CardHeader>
         <CardContent className="p-0">
           <table className="w-full text-sm">
@@ -91,7 +100,7 @@ function SettingsPage() {
                     </span>
                   </td>
                   <td className="px-5 py-3 text-right">
-                    <Button variant="ghost" size="sm">Manage</Button>
+                    <ManageMemberDialog name={m.name} email={m.email} role={m.role} />
                   </td>
                 </tr>
               ))}
@@ -123,16 +132,24 @@ function SettingsPage() {
           <CardHeader><CardTitle className="text-base">Integrations</CardTitle></CardHeader>
           <CardContent className="grid grid-cols-2 gap-3">
             {["Kenya FRP", "Nigeria NDFR", "M-Pesa history", "Satellite imagery"].map((i) => (
-              <div key={i} className="rounded-lg border bg-muted/30 p-4">
-                <div className="text-sm font-medium">{i}</div>
-                <span className="mt-2 inline-block text-[10px] font-semibold tracking-wider rounded bg-[var(--warning)]/15 text-[var(--warning)] px-1.5 py-0.5">
-                  COMING SOON
-                </span>
-              </div>
+              <IntegrationDialog key={i} name={i} />
             ))}
           </CardContent>
         </Card>
       </div>
+
+      <Card className="shadow-none border mt-6">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-base">Danger zone</CardTitle>
+        </CardHeader>
+        <CardContent className="flex items-center justify-between gap-4">
+          <div>
+            <div className="text-sm font-medium">Delete organization</div>
+            <p className="text-xs text-muted-foreground">Permanently remove all farmer records, sources and team members.</p>
+          </div>
+          <DeleteOrgDialog />
+        </CardContent>
+      </Card>
     </div>
   );
 }
@@ -155,5 +172,114 @@ function ToggleRow({ title, desc, defaultChecked }: { title: string; desc: strin
       </div>
       <Switch defaultChecked={defaultChecked} />
     </div>
+  );
+}
+
+function InviteMemberDialog() {
+  return (
+    <Dialog>
+      <DialogTrigger asChild><Button size="sm">Invite member</Button></DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Invite a team member</DialogTitle>
+          <DialogDescription>They'll get an email to join your FarmIQ workspace.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div><Label className="text-xs">Email</Label><Input className="mt-1.5 h-9" placeholder="name@org.com" /></div>
+          <div>
+            <Label className="text-xs">Role</Label>
+            <Select defaultValue="analyst">
+              <SelectTrigger className="mt-1.5 h-9"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="admin">Admin — full access</SelectItem>
+                <SelectItem value="analyst">Analyst — read + edit records</SelectItem>
+                <SelectItem value="viewer">Viewer — read-only</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <DialogFooter><Button>Send invite</Button></DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ManageMemberDialog({ name, email, role }: { name: string; email: string; role: string }) {
+  return (
+    <Dialog>
+      <DialogTrigger asChild><Button variant="ghost" size="sm">Manage</Button></DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{name}</DialogTitle>
+          <DialogDescription>{email}</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <Label className="text-xs">Role</Label>
+            <Select defaultValue={role.toLowerCase()}>
+              <SelectTrigger className="mt-1.5 h-9"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="admin">Admin</SelectItem>
+                <SelectItem value="analyst">Analyst</SelectItem>
+                <SelectItem value="viewer">Viewer</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center justify-between rounded-md border bg-muted/30 px-3 py-2">
+            <span className="text-xs">Can export PII</span>
+            <Switch />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="destructive">Remove from org</Button>
+          <Button>Save changes</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function IntegrationDialog({ name }: { name: string }) {
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <button className="text-left rounded-lg border bg-muted/30 p-4 hover:bg-primary-soft hover:border-primary/30 transition">
+          <div className="text-sm font-medium">{name}</div>
+          <span className="mt-2 inline-block text-[10px] font-semibold tracking-wider rounded bg-[var(--warning)]/15 text-[var(--warning)] px-1.5 py-0.5">
+            COMING SOON
+          </span>
+        </button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{name}</DialogTitle>
+          <DialogDescription>This integration isn't generally available yet — join the waitlist for early access.</DialogDescription>
+        </DialogHeader>
+        <div className="rounded-md border bg-muted/30 p-3 text-xs text-foreground/80">
+          Once enabled, FarmIQ will pull records from {name} on a daily schedule and reconcile against your farmer graph.
+        </div>
+        <DialogFooter><Button>Join waitlist</Button></DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function DeleteOrgDialog() {
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild><Button variant="destructive" size="sm">Delete organization</Button></AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete this organization?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This action is permanent. All 4,742 farmer records, 5 connected sources, and team accounts will be removed.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete forever</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
