@@ -4,9 +4,16 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { PageHeader } from "@/components/page-header";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
+} from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Database, FileSpreadsheet, Cloud, Webhook, Network, MessageSquare, Plug,
-  CheckCircle2, RefreshCw,
+  CheckCircle2, RefreshCw, Settings2, Copy,
 } from "lucide-react";
 
 export const Route = createFileRoute("/connections")({
@@ -100,9 +107,10 @@ function ConnectionsPage() {
                       <RefreshCw className="h-3 w-3 mr-1" /> Sync now
                     </Button>
                   </div>
+                  <ConfigureConnectionDialog name={c.name} />
                 </div>
               ) : (
-                <Button variant="outline" size="sm" className="w-full">Connect</Button>
+                <ConnectDialog name={c.name} />
               )}
             </CardContent>
           </Card>
