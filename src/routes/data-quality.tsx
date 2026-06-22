@@ -2,9 +2,13 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, Copy, ShieldQuestion, FileWarning } from "lucide-react";
+import { AlertTriangle, Copy, ShieldQuestion, FileWarning, ArrowRight } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { qualityIssues, farmers } from "@/data/sample";
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
+} from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
 
 export const Route = createFileRoute("/data-quality")({
   head: () => ({
@@ -99,15 +103,17 @@ function DataQualityPage() {
                       </td>
                       <td className="px-5 py-3 text-muted-foreground">{q.impact}</td>
                       <td className="px-5 py-3 text-right">
-                        <Button variant="ghost" size="sm" className="text-primary">Review</Button>
+                        <ReviewIssueDialog issue={q.type} count={q.count} impact={q.impact} />
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </TabsContent>
-            <TabsContent value="duplicates" className="m-0 p-8">
-              <EmptyTab title="12 duplicate pairs awaiting merge" sub="Review pairs side-by-side and confirm the canonical record." cta="Open merge tool" />
+            <TabsContent value="duplicates" className="m-0 p-6 space-y-3">
+              {farmers.slice(0, 3).map((f, i) => (
+                <MergeDialog key={f.id} left={f} right={farmers[i + 3]} />
+              ))}
             </TabsContent>
             <TabsContent value="unverified" className="m-0 p-8">
               <EmptyTab title="206 unverified data points" sub="Cross-check against a second source or assign to a field agent." cta="Assign to field agent" />
@@ -118,7 +124,7 @@ function DataQualityPage() {
                   <span className="font-semibold">98 farmers</span> have no consent record on file.
                   These profiles will not be exported to third parties.
                 </p>
-                <Button className="mt-4">Send consent SMS (mocked)</Button>
+                <SendConsentDialog />
               </div>
               <div className="mt-4 text-xs text-muted-foreground">
                 Sample: {farmers.filter((f) => f.consent !== "Consented").map((f) => f.name).join(", ")}…
