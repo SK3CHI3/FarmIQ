@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { ArrowUpRight, TrendingUp, AlertTriangle, Users, CheckCircle2 } from "lucide-react";
 import { PageHeader, CompletenessBar, StatusBadge } from "@/components/page-header";
 import { activityFeed, dataSources, farmers, stats } from "@/data/sample";
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -55,6 +57,15 @@ function StatCard({
 
 function Dashboard() {
   const attention = [...farmers].sort((a, b) => a.completeness - b.completeness).slice(0, 5);
+  const chartData = dataSources.map((s) => ({
+    name: s.name.replace(" — ", " ").split(" ").slice(0, 2).join(" "),
+    full: s.name,
+    completeness: s.completeness,
+    records: s.records,
+  }));
+  const chartConfig = {
+    completeness: { label: "Completeness %", color: "hsl(var(--primary))" },
+  } satisfies ChartConfig;
   return (
     <div>
       <PageHeader
@@ -78,24 +89,22 @@ function Dashboard() {
           <CardHeader>
             <CardTitle className="text-base">Data health by source</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            {dataSources.map((s) => {
-              const color =
-                s.completeness >= 70 ? "bg-primary" : s.completeness >= 40 ? "bg-[var(--warning)]" : "bg-destructive";
-              return (
-                <div key={s.name}>
-                  <div className="flex justify-between text-sm mb-1.5">
-                    <span className="font-medium text-foreground">{s.name}</span>
-                    <span className="text-muted-foreground">
-                      {s.records.toLocaleString()} records · {s.completeness}%
-                    </span>
-                  </div>
-                  <div className="h-2 rounded-full bg-muted overflow-hidden">
-                    <div className={`h-full ${color}`} style={{ width: `${s.completeness}%` }} />
-                  </div>
-                </div>
-              );
-            })}
+          <CardContent>
+            <ChartContainer config={chartConfig} className="h-[260px] w-full">
+              <BarChart data={chartData} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+                <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                <XAxis dataKey="name" tickLine={false} axisLine={false} fontSize={11} />
+                <YAxis tickLine={false} axisLine={false} fontSize={11} domain={[0, 100]} />
+                <ChartTooltip
+                  content={
+                    <ChartTooltipContent
+                      labelFormatter={(_, p) => (p?.[0]?.payload as { full?: string })?.full ?? ""}
+                    />
+                  }
+                />
+                <Bar dataKey="completeness" fill="var(--color-completeness)" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ChartContainer>
           </CardContent>
         </Card>
 
