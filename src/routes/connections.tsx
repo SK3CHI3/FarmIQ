@@ -58,9 +58,7 @@ function ConnectionsPage() {
         title="Connections"
         description="Wire FarmIQ to your data sources — graph DB, warehouses, sheets, and APIs."
         actions={
-          <Button>
-            <Plug className="h-4 w-4 mr-2" /> Add connection
-          </Button>
+          <AddConnectionDialog />
         }
       />
 
