@@ -13,6 +13,7 @@ import appCss from "../styles.css?url";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { Topbar } from "@/components/topbar";
+import { Toaster } from "@/components/ui/sonner";
 
 function NotFoundComponent() {
   return (
@@ -132,6 +133,7 @@ function RootComponent() {
           </main>
         </SidebarInset>
       </SidebarProvider>
+      <Toaster />
     </QueryClientProvider>
   );
 }

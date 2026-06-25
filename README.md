@@ -405,6 +405,12 @@ SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_PUBLISHABLE_KEY=your-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 
+# OpenRouter (AI intelligence + data quality suggestions)
+OPENROUTER_API_KEY=your-openrouter-api-key
+OPENROUTER_MODEL=openai/gpt-4o-mini
+OPENROUTER_SITE_URL=https://your-site.netlify.app
+OPENROUTER_SITE_NAME=FarmIQ
+
 # Public config
 VITE_APP_NAME=FarmIQ
 VITE_API_BASE_URL=/api/v1
