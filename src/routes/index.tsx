@@ -2,10 +2,10 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Link } from "@tanstack/react-router";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowUpRight, TrendingUp, AlertTriangle, Users, CheckCircle2 } from "lucide-react";
+import { ArrowUpRight, TrendingUp, AlertTriangle, Users, CheckCircle2, Layers, Wallet } from "lucide-react";
 import { PageHeader, CompletenessBar, StatusBadge } from "@/components/page-header";
-import { activityFeed, dataSources, farmers, stats } from "@/data/sample";
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import { activityFeed, baselineFieldCoverage, dataSources, farmers, paymentMix, stats, tierDistribution } from "@/data/sample";
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Cell, Pie, PieChart, RadialBar, RadialBarChart, PolarAngleAxis } from "recharts";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 
 export const Route = createFileRoute("/")({
@@ -43,13 +43,16 @@ function StatCard({
           : "text-foreground";
   return (
     <Card className="shadow-none border">
-      <CardContent className="p-5">
-        <div className="flex items-start justify-between">
+      <CardContent className="p-5 relative overflow-hidden">
+        <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-primary/5" />
+        <div className="flex items-start justify-between relative">
           <span className="label-eyebrow">{label}</span>
-          <Icon className="h-4 w-4 text-muted-foreground" />
+          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary-soft">
+            <Icon className="h-3.5 w-3.5 text-primary" />
+          </div>
         </div>
-        <div className={`mt-3 text-3xl font-semibold tracking-tight ${valueColor}`}>{value}</div>
-        {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
+        <div className={`mt-3 text-3xl font-semibold tracking-tight ${valueColor} relative`}>{value}</div>
+        {hint && <p className="mt-1 text-xs text-muted-foreground relative">{hint}</p>}
       </CardContent>
     </Card>
   );
@@ -58,7 +61,7 @@ function StatCard({
 function Dashboard() {
   const attention = [...farmers].sort((a, b) => a.completeness - b.completeness).slice(0, 5);
   const chartData = dataSources.map((s) => ({
-    name: s.name.replace(" — ", " ").split(" ").slice(0, 2).join(" "),
+    name: s.short,
     full: s.name,
     completeness: s.completeness,
     records: s.records,
@@ -66,6 +69,15 @@ function Dashboard() {
   const chartConfig = {
     completeness: { label: "Completeness %", color: "var(--primary)" },
   } satisfies ChartConfig;
+
+  const readinessPct = Math.round((stats.decisionReady / stats.totalFarmers) * 100);
+  const readinessData = [{ name: "ready", value: readinessPct, fill: "var(--primary)" }];
+  const tierConfig = { count: { label: "Farmers", color: "var(--primary)" } } satisfies ChartConfig;
+  const baselineConfig = { coverage: { label: "Coverage %", color: "var(--primary)" } } satisfies ChartConfig;
+  const paymentConfig = paymentMix.reduce(
+    (acc, p) => ({ ...acc, [p.name]: { label: p.name, color: p.color } }),
+    {} as ChartConfig,
+  );
   return (
     <div>
       <PageHeader
@@ -86,30 +98,141 @@ function Dashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-6">
         <Card className="lg:col-span-2 shadow-none border">
-          <CardHeader>
+          <CardHeader className="pb-2">
             <CardTitle className="text-base">Data health by source</CardTitle>
+            <p className="text-xs text-muted-foreground">Completeness % across the 7 sources FarmIQ ingests in MVP.</p>
           </CardHeader>
           <CardContent>
-            <ChartContainer config={chartConfig} className="h-[260px] w-full">
-              <BarChart data={chartData} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
-                <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                <XAxis dataKey="name" tickLine={false} axisLine={false} fontSize={11} />
-                <YAxis tickLine={false} axisLine={false} fontSize={11} domain={[0, 100]} />
+            <ChartContainer config={chartConfig} className="h-[280px] w-full">
+              <BarChart data={chartData} margin={{ top: 12, right: 8, left: -16, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="barFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="var(--primary)" stopOpacity={0.95} />
+                    <stop offset="100%" stopColor="var(--primary)" stopOpacity={0.45} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis dataKey="name" tickLine={false} axisLine={false} fontSize={11} tick={{ fill: "var(--muted-foreground)" }} />
+                <YAxis tickLine={false} axisLine={false} fontSize={11} domain={[0, 100]} tick={{ fill: "var(--muted-foreground)" }} unit="%" />
                 <ChartTooltip
+                  cursor={{ fill: "var(--muted)", opacity: 0.4 }}
                   content={
                     <ChartTooltipContent
                       labelFormatter={(_, p) => (p?.[0]?.payload as { full?: string })?.full ?? ""}
                     />
                   }
                 />
-                <Bar dataKey="completeness" fill="var(--color-completeness)" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="completeness" fill="url(#barFill)" radius={[8, 8, 0, 0]} maxBarSize={48} />
               </BarChart>
             </ChartContainer>
           </CardContent>
         </Card>
 
         <Card className="shadow-none border">
-          <CardHeader>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-primary" /> Decision-ready</CardTitle>
+            <p className="text-xs text-muted-foreground">Share of farmer base passing at least one decision threshold.</p>
+          </CardHeader>
+          <CardContent>
+            <ChartContainer config={{ ready: { label: "Ready", color: "var(--primary)" } }} className="h-[200px] w-full">
+              <RadialBarChart data={readinessData} innerRadius="70%" outerRadius="100%" startAngle={90} endAngle={-270}>
+                <PolarAngleAxis type="number" domain={[0, 100]} tick={false} />
+                <RadialBar dataKey="value" cornerRadius={20} background={{ fill: "var(--muted)" }} />
+              </RadialBarChart>
+            </ChartContainer>
+            <div className="-mt-[140px] text-center pointer-events-none">
+              <div className="text-3xl font-semibold tracking-tight text-foreground">{readinessPct}%</div>
+              <div className="text-[11px] uppercase tracking-wider text-muted-foreground">{stats.decisionReady.toLocaleString()} farmers</div>
+            </div>
+            <div className="mt-[60px] grid grid-cols-3 gap-2 text-center text-[11px]">
+              <div><div className="font-semibold text-foreground">62%</div><div className="text-muted-foreground">Credit</div></div>
+              <div><div className="font-semibold text-foreground">38%</div><div className="text-muted-foreground">Insurance</div></div>
+              <div><div className="font-semibold text-foreground">71%</div><div className="text-muted-foreground">Input</div></div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">
+        <Card className="shadow-none border lg:col-span-2">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2"><Layers className="h-4 w-4 text-primary" /> Farmer tier funnel</CardTitle>
+            <p className="text-xs text-muted-foreground">Farmers move up tiers as more verified data is collected.</p>
+          </CardHeader>
+          <CardContent>
+            <ChartContainer config={tierConfig} className="h-[220px] w-full">
+              <BarChart data={tierDistribution} layout="vertical" margin={{ top: 4, right: 24, left: 8, bottom: 0 }}>
+                <CartesianGrid horizontal={false} strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis type="number" tickLine={false} axisLine={false} fontSize={11} tick={{ fill: "var(--muted-foreground)" }} />
+                <YAxis dataKey="tier" type="category" tickLine={false} axisLine={false} fontSize={11} width={56} tick={{ fill: "var(--foreground)" }} />
+                <ChartTooltip
+                  cursor={{ fill: "var(--muted)", opacity: 0.4 }}
+                  content={<ChartTooltipContent labelFormatter={(_, p) => {
+                    const d = p?.[0]?.payload as { tier?: string; label?: string; unlocks?: string };
+                    return d ? `${d.tier} · ${d.label} — unlocks ${d.unlocks}` : "";
+                  }} />}
+                />
+                <Bar dataKey="count" radius={[0, 8, 8, 0]} maxBarSize={28}>
+                  {tierDistribution.map((_, i) => (
+                    <Cell key={i} fill={`oklch(${0.52 + i * 0.08} 0.09 162)`} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ChartContainer>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-none border">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2"><Wallet className="h-4 w-4 text-primary" /> Payment mix</CardTitle>
+            <p className="text-xs text-muted-foreground">World Bank Findex angle — cash vs digital onramp.</p>
+          </CardHeader>
+          <CardContent>
+            <ChartContainer config={paymentConfig} className="h-[200px] w-full">
+              <PieChart>
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Pie data={paymentMix} dataKey="value" nameKey="name" innerRadius={50} outerRadius={78} paddingAngle={2}>
+                  {paymentMix.map((p, i) => <Cell key={i} fill={p.color} />)}
+                </Pie>
+              </PieChart>
+            </ChartContainer>
+            <ul className="mt-2 space-y-1 text-xs">
+              {paymentMix.map((p) => (
+                <li key={p.name} className="flex items-center justify-between">
+                  <span className="flex items-center gap-2 text-foreground"><span className="h-2 w-2 rounded-full" style={{ background: p.color }} />{p.name}</span>
+                  <span className="text-muted-foreground">{p.value.toLocaleString()}</span>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">
+        <Card className="shadow-none border lg:col-span-2">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">GoK baseline field coverage</CardTitle>
+            <p className="text-xs text-muted-foreground">The 6 fields Kenya's MoALFC requires for KIAMIS registration.</p>
+          </CardHeader>
+          <CardContent>
+            <ChartContainer config={baselineConfig} className="h-[220px] w-full">
+              <BarChart data={baselineFieldCoverage} margin={{ top: 12, right: 8, left: -16, bottom: 0 }}>
+                <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis dataKey="field" tickLine={false} axisLine={false} fontSize={11} tick={{ fill: "var(--muted-foreground)" }} />
+                <YAxis tickLine={false} axisLine={false} fontSize={11} domain={[0, 100]} unit="%" tick={{ fill: "var(--muted-foreground)" }} />
+                <ChartTooltip cursor={{ fill: "var(--muted)", opacity: 0.4 }} content={<ChartTooltipContent />} />
+                <Bar dataKey="coverage" radius={[8, 8, 0, 0]} maxBarSize={48}>
+                  {baselineFieldCoverage.map((d, i) => (
+                    <Cell key={i} fill={d.coverage >= 85 ? "var(--primary)" : d.coverage >= 70 ? "oklch(0.78 0.16 75)" : "var(--destructive)"} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ChartContainer>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-none border">
+          <CardHeader className="pb-2">
             <CardTitle className="text-base">Recent activity</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
