@@ -416,13 +416,13 @@ VITE_API_BASE_URL=/api/v1
 
 ## Deployment notes
 
-This is a TanStack Start application built for edge deployment (Cloudflare Workers by default in Lovable Cloud). Keep the following in mind:
+This is a TanStack Start application deployed to **Netlify** with SSR via `@netlify/vite-plugin-tanstack-start`. Keep the following in mind:
 
 - Do **not** create `entry-client.tsx` or `entry-server.tsx` — TanStack Start v1 handles this automatically.
 - Server functions live in `*.functions.ts` files or directly inside route handlers.
 - Public API endpoints for webhooks/cron should be placed under `src/routes/api/public/`.
-- Avoid Node.js-only libraries in server functions (`child_process`, `sharp`, `canvas`, etc.).
-- For Neo4j, use the official `neo4j-driver` package which supports WebSocket/Bolt over TCP and works in edge runtimes when configured correctly.
+- Build settings are defined in `netlify.toml` (`npm run build`, publish `dist/client`).
+- Deploy with the Netlify CLI: `npx netlify deploy` (use `--prod` for production).
 
 ---
 
@@ -432,7 +432,7 @@ This is a TanStack Start application built for edge deployment (Cloudflare Worke
 2. Follow the existing design token system — no hardcoded colors in components.
 3. Add new routes as files in `src/routes/`; the router auto-registers them.
 4. Update this README when the data model or Neo4j schema changes.
-5. Run `bun run lint` and `bun run build` before opening a PR.
+5. Run `npm run lint` and `npm run build` before opening a PR.
 
 ---
 
