@@ -21,6 +21,7 @@ export function FarmerSheet({ farmer, children }: { farmer: Farmer; children: Re
               <SheetTitle className="text-base">{farmer.name}</SheetTitle>
               <SheetDescription className="text-xs">{farmer.id} · {farmer.source}</SheetDescription>
             </div>
+            <Badge className="ml-auto bg-primary-soft text-accent-foreground hover:bg-primary-soft">Tier {farmer.tier}</Badge>
           </div>
         </SheetHeader>
 
