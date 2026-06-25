@@ -43,13 +43,16 @@ function StatCard({
           : "text-foreground";
   return (
     <Card className="shadow-none border">
-      <CardContent className="p-5">
-        <div className="flex items-start justify-between">
+      <CardContent className="p-5 relative overflow-hidden">
+        <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-primary/5" />
+        <div className="flex items-start justify-between relative">
           <span className="label-eyebrow">{label}</span>
-          <Icon className="h-4 w-4 text-muted-foreground" />
+          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary-soft">
+            <Icon className="h-3.5 w-3.5 text-primary" />
+          </div>
         </div>
-        <div className={`mt-3 text-3xl font-semibold tracking-tight ${valueColor}`}>{value}</div>
-        {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
+        <div className={`mt-3 text-3xl font-semibold tracking-tight ${valueColor} relative`}>{value}</div>
+        {hint && <p className="mt-1 text-xs text-muted-foreground relative">{hint}</p>}
       </CardContent>
     </Card>
   );
