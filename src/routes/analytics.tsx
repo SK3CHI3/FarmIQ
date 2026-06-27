@@ -10,7 +10,7 @@ import {
 } from "recharts";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { getSources } from "@/lib/dashboard.functions";
-import { getFarmers } from "@/server/farmers.server";
+import { getFarmers } from "@/server/farmers.functions";
 
 export const Route = createFileRoute("/analytics")({
   head: () => ({
