@@ -81,10 +81,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "description", content: "Turn messy farmer data into clear, decision-ready intelligence for credit, insurance and input financing." },
       { name: "author", content: "FarmIQ" },
       { property: "og:title", content: "FarmIQ — Farmer Data Intelligence" },
-      { property: "og:description", content: "Clean, score and surface farmer data for agricultural organizations in Kenya and Nigeria." },
+      { property: "og:description", content: "Turn messy farmer data into clear, decision-ready intelligence for credit, insurance and input financing." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@FarmIQ" },
+      { name: "twitter:title", content: "FarmIQ — Farmer Data Intelligence" },
+      { name: "twitter:description", content: "Turn messy farmer data into clear, decision-ready intelligence for credit, insurance and input financing." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/58f85472-6118-4f87-bbc5-4161e489fb52/id-preview-3b0996bc--233e2154-fcdb-4336-a7c8-5c44ba1032d5.lovable.app-1782575768159.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/58f85472-6118-4f87-bbc5-4161e489fb52/id-preview-3b0996bc--233e2154-fcdb-4336-a7c8-5c44ba1032d5.lovable.app-1782575768159.png" },
     ],
     links: [
       {
