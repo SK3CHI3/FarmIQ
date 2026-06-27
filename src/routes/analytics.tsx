@@ -9,7 +9,7 @@ import {
   Line, LineChart, Legend, Radar, RadarChart, PolarAngleAxis, PolarGrid,
 } from "recharts";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
-import { getSources } from "@/server/dashboard.server";
+import { getSources } from "@/lib/dashboard.functions";
 import { getFarmers } from "@/server/farmers.server";
 
 export const Route = createFileRoute("/analytics")({

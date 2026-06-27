@@ -13,7 +13,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } f
 import { getFarmers } from "@/server/farmers.server";
 import {
   getSources, getActivity, getTierDistribution, getPaymentMix, getBaselineCoverage,
-} from "@/server/dashboard.server";
+} from "@/lib/dashboard.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
