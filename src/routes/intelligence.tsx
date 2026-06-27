@@ -5,16 +5,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sparkles, Download, BookmarkPlus, Loader2 } from "lucide-react";
 import { PageHeader, CompletenessBar } from "@/components/page-header";
-import { farmers, suggestedQueries } from "@/data/sample";
+import { suggestedQueries } from "@/data/sample";
 import { FarmerSheet } from "@/components/farmer-sheet";
 import {
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
+  Dialog, DialogContent, DialogDescription, DialogFooter,
+  DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { askIntelligence, type IntelligenceAnswer } from "@/server/ai.functions";
 import { getAiErrorMessage } from "@/lib/ai-errors";
 import { toast } from "sonner";
+import { getFarmers } from "@/server/farmers.server";
 
 export const Route = createFileRoute("/intelligence")({
   head: () => ({
@@ -23,10 +25,12 @@ export const Route = createFileRoute("/intelligence")({
       { name: "description", content: "Ask plain-language questions and get traceable answers from your farmer data." },
     ],
   }),
+  loader: () => getFarmers(),
   component: IntelligencePage,
 });
 
 function IntelligencePage() {
+  const farmers = Route.useLoaderData();
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [answer, setAnswer] = useState<IntelligenceAnswer | null>(null);
@@ -37,11 +41,7 @@ function IntelligencePage() {
 
   async function handleAsk(nextQuery = query) {
     const trimmed = nextQuery.trim();
-    if (!trimmed) {
-      toast.error("Enter a question first.");
-      return;
-    }
-
+    if (!trimmed) { toast.error("Enter a question first."); return; }
     setLoading(true);
     try {
       const result = await askIntelligence({ data: { query: trimmed } });
@@ -68,9 +68,7 @@ function IntelligencePage() {
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") void handleAsk();
-              }}
+              onKeyDown={(e) => { if (e.key === "Enter") void handleAsk(); }}
               placeholder="Ask FarmIQ anything about your farmers…"
               className="border-0 shadow-none focus-visible:ring-0 px-0 h-10 text-base"
               disabled={loading}
@@ -83,10 +81,7 @@ function IntelligencePage() {
             {suggestedQueries.map((q) => (
               <button
                 key={q}
-                onClick={() => {
-                  setQuery(q);
-                  void handleAsk(q);
-                }}
+                onClick={() => { setQuery(q); void handleAsk(q); }}
                 disabled={loading}
                 className="text-xs rounded-full border bg-muted/40 hover:bg-primary-soft hover:border-primary/30 px-3 py-1.5 text-foreground transition disabled:opacity-50"
               >
@@ -102,15 +97,13 @@ function IntelligencePage() {
           <CardHeader>
             <span className="label-eyebrow">Answer</span>
             <CardTitle className="text-lg leading-snug mt-1">
-              {answer?.summary ??
-                "Ask a question to get an AI-generated answer grounded in your farmer records."}
+              {answer?.summary ?? "Ask a question to get an AI-generated answer grounded in your farmer records."}
             </CardTitle>
           </CardHeader>
           <CardContent>
             {answer?.reasoning ? (
               <p className="text-sm text-muted-foreground mb-4">{answer.reasoning}</p>
             ) : null}
-
             <div className="rounded-lg border overflow-hidden">
               <table className="w-full text-sm">
                 <thead>
@@ -145,12 +138,11 @@ function IntelligencePage() {
                 </tbody>
               </table>
             </div>
-
             <div className="mt-4 flex items-center justify-between flex-wrap gap-2">
               <p className="text-xs text-muted-foreground">
                 {answer?.sources?.length
                   ? `Generated from ${answer.sources.length} source(s): ${answer.sources.join(", ")}.`
-                  : "Powered by OpenRouter · grounded in rule-based validation + sample farmer data."}
+                  : `Powered by OpenRouter · ${farmers.length} farmers loaded from Neo4j.`}
               </p>
               <div className="flex gap-2">
                 <SaveInsightDialog query={query} />
@@ -163,18 +155,14 @@ function IntelligencePage() {
         </Card>
 
         <Card className="shadow-none border">
-          <CardHeader>
-            <CardTitle className="text-base">Saved insights</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle className="text-base">Saved insights</CardTitle></CardHeader>
           <CardContent className="space-y-3 text-sm">
             {[
               "Credit-ready farmers, Q2",
               "Nigerian millet growers — input gap",
               "Cooperative coverage by county",
               "Consent backlog (rolling)",
-            ].map((s) => (
-              <SavedInsightDialog key={s} title={s} />
-            ))}
+            ].map((s) => <SavedInsightDialog key={s} title={s} />)}
           </CardContent>
         </Card>
       </div>
@@ -195,9 +183,8 @@ function SaveInsightDialog({ query }: { query: string }) {
         </DialogHeader>
         <div className="space-y-3">
           <div><Label className="text-xs">Title</Label><Input className="mt-1.5 h-9" defaultValue="Machakos maize · insurance gap" /></div>
-          <div><Label className="text-xs">Query</Label><Textarea rows={3} className="mt-1.5 text-xs font-mono" defaultValue={query || "Which farmers in Machakos are maize-ready but have no insurance coverage?"} /></div>
-          <div><Label className="text-xs">Refresh</Label>
-            <Input className="mt-1.5 h-9" defaultValue="Daily at 06:00" /></div>
+          <div><Label className="text-xs">Query</Label><Textarea rows={3} className="mt-1.5 text-xs font-mono" defaultValue={query || "Which farmers are maize-ready but have no insurance coverage?"} /></div>
+          <div><Label className="text-xs">Refresh</Label><Input className="mt-1.5 h-9" defaultValue="Daily at 06:00" /></div>
         </div>
         <DialogFooter><Button>Save insight</Button></DialogFooter>
       </DialogContent>
@@ -217,7 +204,7 @@ function SavedInsightDialog({ title }: { title: string }) {
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>Last refreshed yesterday at 06:00 · 47 matching farmers</DialogDescription>
+          <DialogDescription>Last refreshed yesterday at 06:00</DialogDescription>
         </DialogHeader>
         <div className="rounded-md border bg-muted/30 p-3 text-xs font-mono">
           MATCH (f:Farmer)-[:GROWS]-&gt;(c:Crop) WHERE c.name = 'Maize' AND NOT (f)-[:HAS_PRODUCT]-&gt;(:Insurance) RETURN f LIMIT 50

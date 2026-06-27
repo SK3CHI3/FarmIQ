@@ -4,45 +4,51 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowUpRight, TrendingUp, AlertTriangle, Users, CheckCircle2, Layers, Wallet } from "lucide-react";
 import { PageHeader, CompletenessBar, StatusBadge } from "@/components/page-header";
-import { activityFeed, baselineFieldCoverage, dataSources, fmt, paymentMix, tierDistribution } from "@/data/sample";
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Cell, Pie, PieChart, RadialBar, RadialBarChart, PolarAngleAxis } from "recharts";
+import { fmt } from "@/data/sample";
+import {
+  Bar, BarChart, CartesianGrid, XAxis, YAxis, Cell,
+  Pie, PieChart, RadialBar, RadialBarChart, PolarAngleAxis,
+} from "recharts";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { getFarmers } from "@/server/farmers.server";
+import {
+  getSources, getActivity, getTierDistribution, getPaymentMix, getBaselineCoverage,
+} from "@/server/dashboard.server";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "Dashboard · FarmIQ" },
       { name: "description", content: "Overview of farmer data health, decision readiness and pending actions." },
-      { property: "og:title", content: "Dashboard · FarmIQ" },
-      { property: "og:description", content: "Overview of farmer data health, decision readiness and pending actions." },
     ],
   }),
-  loader: () => getFarmers(),
+  loader: async () => {
+    const [farmers, sources, activity, tierDist, paymentMix, baselineCoverage] = await Promise.all([
+      getFarmers(),
+      getSources(),
+      getActivity(),
+      getTierDistribution(),
+      getPaymentMix(),
+      getBaselineCoverage(),
+    ]);
+    return { farmers, sources, activity, tierDist, paymentMix, baselineCoverage };
+  },
   component: Dashboard,
 });
 
+// ── StatCard ──────────────────────────────────────────────────────────────────
+
 function StatCard({
-  label,
-  value,
-  hint,
-  tone = "default",
-  icon: Icon,
+  label, value, hint, tone = "default", icon: Icon,
 }: {
-  label: string;
-  value: string | number;
-  hint?: string;
+  label: string; value: string | number; hint?: string;
   tone?: "default" | "good" | "warning" | "bad";
   icon: React.ComponentType<{ className?: string }>;
 }) {
   const valueColor =
-    tone === "good"
-      ? "text-primary"
-      : tone === "warning"
-        ? "text-[var(--warning)]"
-        : tone === "bad"
-          ? "text-destructive"
-          : "text-foreground";
+    tone === "good" ? "text-primary" :
+    tone === "warning" ? "text-[var(--warning)]" :
+    tone === "bad" ? "text-destructive" : "text-foreground";
   return (
     <Card className="shadow-none border">
       <CardContent className="p-5 relative overflow-hidden">
@@ -60,81 +66,71 @@ function StatCard({
   );
 }
 
-function Dashboard() {
-  const dbFarmers = Route.useLoaderData();
-  const attention = [...dbFarmers].sort((a, b) => a.completeness - b.completeness).slice(0, 5);
+// ── Dashboard ─────────────────────────────────────────────────────────────────
 
-  // Compute live stats from DB
-  const totalFarmers = dbFarmers.length;
+function Dashboard() {
+  const { farmers, sources, activity, tierDist, paymentMix, baselineCoverage } = Route.useLoaderData();
+
+  const attention = [...farmers].sort((a, b) => a.completeness - b.completeness).slice(0, 5);
+
+  const totalFarmers  = farmers.length;
   const completenessPct = totalFarmers
-    ? Math.round(dbFarmers.reduce((s, f) => s + f.completeness, 0) / totalFarmers)
-    : 0;
-  const decisionReady = dbFarmers.filter(
+    ? Math.round(farmers.reduce((s, f) => s + f.completeness, 0) / totalFarmers) : 0;
+  const decisionReady = farmers.filter(
     (f) => f.credit === "ready" || f.insurance === "ready" || f.input === "ready",
   ).length;
-  const pendingActions = dbFarmers.filter((f) => f.consent === "Pending").length;
-  const chartData = dataSources.map((s) => ({
-    name: s.short,
-    full: s.name,
-    completeness: s.completeness,
-    records: s.records,
-  }));
-  const chartConfig = {
-    completeness: { label: "Completeness %", color: "var(--primary)" },
-  } satisfies ChartConfig;
+  const pendingActions = farmers.filter((f) => f.consent === "Pending").length;
+  const readinessPct   = totalFarmers ? Math.round((decisionReady / totalFarmers) * 100) : 0;
 
-  const readinessPct = totalFarmers ? Math.round((decisionReady / totalFarmers) * 100) : 0;
+  // Credit / insurance / input breakdown %
+  const creditPct    = totalFarmers ? Math.round((farmers.filter(f => f.credit    === "ready").length / totalFarmers) * 100) : 0;
+  const insurancePct = totalFarmers ? Math.round((farmers.filter(f => f.insurance === "ready").length / totalFarmers) * 100) : 0;
+  const inputPct     = totalFarmers ? Math.round((farmers.filter(f => f.input     === "ready").length / totalFarmers) * 100) : 0;
+
+  const chartData = sources.map((s) => ({ name: s.short, full: s.name, completeness: s.completeness, records: s.records }));
   const readinessData = [{ name: "ready", value: readinessPct, fill: "var(--primary)" }];
-  const tierConfig = { count: { label: "Farmers", color: "var(--primary)" } } satisfies ChartConfig;
-  const baselineConfig = { coverage: { label: "Coverage %", color: "var(--primary)" } } satisfies ChartConfig;
+
   const paymentConfig = paymentMix.reduce(
     (acc, p) => ({ ...acc, [p.name]: { label: p.name, color: p.color } }),
     {} as ChartConfig,
   );
+
   return (
     <div>
       <PageHeader
         title="Dashboard"
         description="How healthy is your farmer data, and what needs attention today."
-        actions={
-          <Button asChild>
-            <Link to="/upload">Upload data</Link>
-          </Button>
-        }
+        actions={<Button asChild><Link to="/upload">Upload data</Link></Button>}
       />
+
+      {/* ── Stat cards ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Total farmers" value={fmt(totalFarmers)} hint="Live from Neo4j" tone="good" icon={Users} />
+        <StatCard label="Total farmers"    value={fmt(totalFarmers)}  hint="Live from Neo4j"                                              tone="good"    icon={Users} />
         <StatCard label="Data completeness" value={`${completenessPct}%`} hint={completenessPct >= 70 ? "Above 70% threshold" : "Below 70% threshold"} tone={completenessPct >= 70 ? "good" : "warning"} icon={TrendingUp} />
-        <StatCard label="Decision-ready" value={fmt(decisionReady)} hint={`${readinessPct}% of farmer base`} tone="default" icon={CheckCircle2} />
-        <StatCard label="Pending actions" value={pendingActions} hint="Awaiting human review" tone="bad" icon={AlertTriangle} />
+        <StatCard label="Decision-ready"   value={fmt(decisionReady)} hint={`${readinessPct}% of farmer base`}                            tone="default" icon={CheckCircle2} />
+        <StatCard label="Pending actions"  value={pendingActions}      hint="Awaiting human review"                                        tone="bad"     icon={AlertTriangle} />
       </div>
 
+      {/* ── Source health + Readiness radial ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-6">
         <Card className="lg:col-span-2 shadow-none border">
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Data health by source</CardTitle>
-            <p className="text-xs text-muted-foreground">Completeness % across the 7 sources FarmIQ ingests in MVP.</p>
+            <p className="text-xs text-muted-foreground">Completeness % across ingested sources.</p>
           </CardHeader>
           <CardContent>
-            <ChartContainer config={chartConfig} className="h-[280px] w-full">
+            <ChartContainer config={{ completeness: { label: "Completeness %", color: "var(--primary)" } }} className="h-[280px] w-full">
               <BarChart data={chartData} margin={{ top: 12, right: 8, left: -16, bottom: 0 }}>
                 <defs>
                   <linearGradient id="barFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="var(--primary)" stopOpacity={0.95} />
+                    <stop offset="0%"   stopColor="var(--primary)" stopOpacity={0.95} />
                     <stop offset="100%" stopColor="var(--primary)" stopOpacity={0.45} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="var(--border)" />
                 <XAxis dataKey="name" tickLine={false} axisLine={false} fontSize={11} tick={{ fill: "var(--muted-foreground)" }} />
                 <YAxis tickLine={false} axisLine={false} fontSize={11} domain={[0, 100]} tick={{ fill: "var(--muted-foreground)" }} unit="%" />
-                <ChartTooltip
-                  cursor={{ fill: "var(--muted)", opacity: 0.4 }}
-                  content={
-                    <ChartTooltipContent
-                      labelFormatter={(_, p) => (p?.[0]?.payload as { full?: string })?.full ?? ""}
-                    />
-                  }
-                />
+                <ChartTooltip cursor={{ fill: "var(--muted)", opacity: 0.4 }} content={<ChartTooltipContent labelFormatter={(_, p) => (p?.[0]?.payload as { full?: string })?.full ?? ""} />} />
                 <Bar dataKey="completeness" fill="url(#barFill)" radius={[8, 8, 0, 0]} maxBarSize={48} />
               </BarChart>
             </ChartContainer>
@@ -158,14 +154,15 @@ function Dashboard() {
               <div className="text-[11px] uppercase tracking-wider text-muted-foreground">{fmt(decisionReady)} farmers</div>
             </div>
             <div className="mt-[60px] grid grid-cols-3 gap-2 text-center text-[11px]">
-              <div><div className="font-semibold text-foreground">62%</div><div className="text-muted-foreground">Credit</div></div>
-              <div><div className="font-semibold text-foreground">38%</div><div className="text-muted-foreground">Insurance</div></div>
-              <div><div className="font-semibold text-foreground">71%</div><div className="text-muted-foreground">Input</div></div>
+              <div><div className="font-semibold text-foreground">{creditPct}%</div>   <div className="text-muted-foreground">Credit</div></div>
+              <div><div className="font-semibold text-foreground">{insurancePct}%</div><div className="text-muted-foreground">Insurance</div></div>
+              <div><div className="font-semibold text-foreground">{inputPct}%</div>    <div className="text-muted-foreground">Input</div></div>
             </div>
           </CardContent>
         </Card>
       </div>
 
+      {/* ── Tier funnel + Payment mix ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">
         <Card className="shadow-none border lg:col-span-2">
           <CardHeader className="pb-2">
@@ -173,22 +170,14 @@ function Dashboard() {
             <p className="text-xs text-muted-foreground">Farmers move up tiers as more verified data is collected.</p>
           </CardHeader>
           <CardContent>
-            <ChartContainer config={tierConfig} className="h-[220px] w-full">
-              <BarChart data={tierDistribution} layout="vertical" margin={{ top: 4, right: 24, left: 8, bottom: 0 }}>
+            <ChartContainer config={{ count: { label: "Farmers", color: "var(--primary)" } }} className="h-[220px] w-full">
+              <BarChart data={tierDist} layout="vertical" margin={{ top: 4, right: 24, left: 8, bottom: 0 }}>
                 <CartesianGrid horizontal={false} strokeDasharray="3 3" stroke="var(--border)" />
                 <XAxis type="number" tickLine={false} axisLine={false} fontSize={11} tick={{ fill: "var(--muted-foreground)" }} />
                 <YAxis dataKey="tier" type="category" tickLine={false} axisLine={false} fontSize={11} width={56} tick={{ fill: "var(--foreground)" }} />
-                <ChartTooltip
-                  cursor={{ fill: "var(--muted)", opacity: 0.4 }}
-                  content={<ChartTooltipContent labelFormatter={(_, p) => {
-                    const d = p?.[0]?.payload as { tier?: string; label?: string; unlocks?: string };
-                    return d ? `${d.tier} · ${d.label} — unlocks ${d.unlocks}` : "";
-                  }} />}
-                />
+                <ChartTooltip cursor={{ fill: "var(--muted)", opacity: 0.4 }} content={<ChartTooltipContent labelFormatter={(_, p) => { const d = p?.[0]?.payload as { tier?: string; label?: string; unlocks?: string }; return d ? `${d.tier} · ${d.label} — unlocks ${d.unlocks}` : ""; }} />} />
                 <Bar dataKey="count" radius={[0, 8, 8, 0]} maxBarSize={28}>
-                  {tierDistribution.map((_, i) => (
-                    <Cell key={i} fill={`oklch(${0.52 + i * 0.08} 0.09 162)`} />
-                  ))}
+                  {tierDist.map((_, i) => <Cell key={i} fill={`oklch(${0.52 + i * 0.08} 0.09 162)`} />)}
                 </Bar>
               </BarChart>
             </ChartContainer>
@@ -198,7 +187,7 @@ function Dashboard() {
         <Card className="shadow-none border">
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2"><Wallet className="h-4 w-4 text-primary" /> Payment mix</CardTitle>
-            <p className="text-xs text-muted-foreground">World Bank Findex angle — cash vs digital onramp.</p>
+            <p className="text-xs text-muted-foreground">Cash vs digital onramp across the farmer base.</p>
           </CardHeader>
           <CardContent>
             <ChartContainer config={paymentConfig} className="h-[200px] w-full">
@@ -212,8 +201,10 @@ function Dashboard() {
             <ul className="mt-2 space-y-1 text-xs">
               {paymentMix.map((p) => (
                 <li key={p.name} className="flex items-center justify-between">
-                  <span className="flex items-center gap-2 text-foreground"><span className="h-2 w-2 rounded-full" style={{ background: p.color }} />{p.name}</span>
-                  <span className="text-muted-foreground">{p.value.toLocaleString("en-US")}</span>
+                  <span className="flex items-center gap-2 text-foreground">
+                    <span className="h-2 w-2 rounded-full" style={{ background: p.color }} />{p.name}
+                  </span>
+                  <span className="text-muted-foreground">{fmt(p.value)}</span>
                 </li>
               ))}
             </ul>
@@ -221,6 +212,7 @@ function Dashboard() {
         </Card>
       </div>
 
+      {/* ── Baseline coverage + Activity ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">
         <Card className="shadow-none border lg:col-span-2">
           <CardHeader className="pb-2">
@@ -228,14 +220,14 @@ function Dashboard() {
             <p className="text-xs text-muted-foreground">The 6 fields Kenya's MoALFC requires for KIAMIS registration.</p>
           </CardHeader>
           <CardContent>
-            <ChartContainer config={baselineConfig} className="h-[220px] w-full">
-              <BarChart data={baselineFieldCoverage} margin={{ top: 12, right: 8, left: -16, bottom: 0 }}>
+            <ChartContainer config={{ coverage: { label: "Coverage %", color: "var(--primary)" } }} className="h-[220px] w-full">
+              <BarChart data={baselineCoverage} margin={{ top: 12, right: 8, left: -16, bottom: 0 }}>
                 <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="var(--border)" />
                 <XAxis dataKey="field" tickLine={false} axisLine={false} fontSize={11} tick={{ fill: "var(--muted-foreground)" }} />
                 <YAxis tickLine={false} axisLine={false} fontSize={11} domain={[0, 100]} unit="%" tick={{ fill: "var(--muted-foreground)" }} />
                 <ChartTooltip cursor={{ fill: "var(--muted)", opacity: 0.4 }} content={<ChartTooltipContent />} />
                 <Bar dataKey="coverage" radius={[8, 8, 0, 0]} maxBarSize={48}>
-                  {baselineFieldCoverage.map((d, i) => (
+                  {baselineCoverage.map((d, i) => (
                     <Cell key={i} fill={d.coverage >= 85 ? "var(--primary)" : d.coverage >= 70 ? "oklch(0.78 0.16 75)" : "var(--destructive)"} />
                   ))}
                 </Bar>
@@ -249,7 +241,7 @@ function Dashboard() {
             <CardTitle className="text-base">Recent activity</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {activityFeed.map((a, i) => (
+            {activity.length ? activity.map((a, i) => (
               <div key={i} className="flex gap-3 text-sm">
                 <div className="mt-1.5 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
                 <div className="flex-1">
@@ -257,18 +249,19 @@ function Dashboard() {
                   <span className="text-xs text-muted-foreground">{a.time}</span>
                 </div>
               </div>
-            ))}
+            )) : (
+              <p className="text-sm text-muted-foreground">No activity recorded yet.</p>
+            )}
           </CardContent>
         </Card>
       </div>
 
+      {/* ── Attention table ── */}
       <Card className="mt-6 shadow-none border">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-base">Farmers needing attention</CardTitle>
           <Button variant="ghost" size="sm" asChild>
-            <Link to="/data-quality" className="text-primary">
-              View all <ArrowUpRight className="h-3.5 w-3.5 ml-1" />
-            </Link>
+            <Link to="/data-quality" className="text-primary">View all <ArrowUpRight className="h-3.5 w-3.5 ml-1" /></Link>
           </Button>
         </CardHeader>
         <CardContent className="p-0">
@@ -284,7 +277,7 @@ function Dashboard() {
               </tr>
             </thead>
             <tbody>
-              {attention.map((f) => (
+              {attention.length ? attention.map((f) => (
                 <tr key={f.id} className="border-b last:border-0 hover:bg-muted/30">
                   <td className="px-6 py-3">
                     <div className="font-medium text-foreground">{f.name}</div>
@@ -293,14 +286,20 @@ function Dashboard() {
                   <td className="px-6 py-3 text-muted-foreground">{f.region}, {f.country}</td>
                   <td className="px-6 py-3 text-muted-foreground">{f.crop}</td>
                   <td className="px-6 py-3"><CompletenessBar value={f.completeness} /></td>
-                  <td className="px-6 py-3"><StatusBadge status={f.credit === "ready" ? "ready" : "not-ready"} /></td>
+                  <td className="px-6 py-3"><StatusBadge status={f.credit} /></td>
                   <td className="px-6 py-3 text-right">
                     <Button variant="ghost" size="sm" asChild>
                       <Link to="/farmers" className="text-primary">Review</Link>
                     </Button>
                   </td>
                 </tr>
-              ))}
+              )) : (
+                <tr>
+                  <td colSpan={6} className="px-6 py-8 text-center text-sm text-muted-foreground">
+                    No farmers found.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </CardContent>

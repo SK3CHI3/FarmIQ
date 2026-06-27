@@ -9,7 +9,7 @@ import {
   Line, LineChart, Legend, Radar, RadarChart, PolarAngleAxis, PolarGrid,
 } from "recharts";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
-import { dataSources } from "@/data/sample";
+import { getSources } from "@/server/dashboard.server";
 import { getFarmers } from "@/server/farmers.server";
 
 export const Route = createFileRoute("/analytics")({
@@ -19,7 +19,10 @@ export const Route = createFileRoute("/analytics")({
       { name: "description", content: "Compare data sources, regions and crop readiness across your farmer base." },
     ],
   }),
-  loader: () => getFarmers(),
+  loader: async () => {
+    const [farmers, sources] = await Promise.all([getFarmers(), getSources()]);
+    return { farmers, sources };
+  },
   component: AnalyticsPage,
 });
 
@@ -33,10 +36,10 @@ const regionTrend = [
 ];
 
 function AnalyticsPage() {
-  const farmers = Route.useLoaderData();
+  const { farmers, sources } = Route.useLoaderData();
   const [metric, setMetric] = useState<"completeness" | "records">("completeness");
 
-  const sourceData = dataSources.map((s) => ({
+  const sourceData = sources.map((s) => ({
     name: s.name.split(" ").slice(0, 2).join(" "),
     full: s.name,
     completeness: s.completeness,

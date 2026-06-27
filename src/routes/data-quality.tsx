@@ -125,7 +125,7 @@ function DataQualityPage() {
 
       {scan ? (
         <p className="text-xs text-muted-foreground mb-4">
-          Last scan: {new Date(scan.scannedAt).toLocaleString()} · {scan.totalFarmers} farmers · avg completeness {scan.averageCompleteness}%
+          Last scan: {new Date(scan.scannedAt).toLocaleString("en-US")} · {scan.totalFarmers} farmers · avg completeness {scan.averageCompleteness}%
         </p>
       ) : null}
 

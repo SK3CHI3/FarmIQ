@@ -94,7 +94,7 @@ function ConnectionsPage() {
                   </div>
                   <div className="flex justify-between text-xs">
                     <span className="text-muted-foreground">Records</span>
-                    <span className="font-medium text-foreground">{c.records?.toLocaleString()}</span>
+                    <span className="font-medium text-foreground">{c.records?.toLocaleString("en-US")}</span>
                   </div>
                   <div className="flex items-center justify-between pt-2 border-t">
                     <div className="flex items-center gap-2">
