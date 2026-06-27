@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Sparkles, Download, BookmarkPlus, Loader2 } from "lucide-react";
 import { PageHeader, CompletenessBar } from "@/components/page-header";
 import { suggestedQueries } from "@/data/sample";
-import { FarmerSheet } from "@/components/farmer-sheet";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter,
   DialogHeader, DialogTitle, DialogTrigger,
@@ -118,8 +117,8 @@ function IntelligencePage() {
                 <tbody>
                   {matchedFarmers.length ? (
                     matchedFarmers.map((f) => (
-                      <FarmerSheet key={f.id} farmer={f}>
-                        <tr className="border-b last:border-0 cursor-pointer hover:bg-muted/30">
+                      <>
+                        <tr key={f.id} className="border-b last:border-0 hover:bg-muted/30">
                           <td className="px-4 py-2.5 font-medium text-primary">{f.name}</td>
                           <td className="px-4 py-2.5 text-muted-foreground">{f.region}</td>
                           <td className="px-4 py-2.5 text-muted-foreground">{f.crop}</td>
@@ -127,16 +126,16 @@ function IntelligencePage() {
                           <td className="px-4 py-2.5 text-xs text-muted-foreground">{f.source}</td>
                         </tr>
                         {answer?.details?.[f.id] ? (
-                          <tr className="bg-muted/10">
+                          <tr key={`${f.id}-details`} className="bg-muted/10">
                             <td colSpan={5} className="px-4 py-2 text-sm text-muted-foreground">
-                              <strong>Why:</strong> {answer.details[f.id].explanation}
-                              {answer.details[f.id].matchedChecks ? (
+                              <strong>Why:</strong> {answer.details[f.id].explanation ?? "No explanation available."}
+                              {answer.details[f.id].matchedChecks?.length ? (
                                 <span> — Checks: {answer.details[f.id].matchedChecks.join(', ')}</span>
                               ) : null}
                             </td>
                           </tr>
                         ) : null}
-                      </FarmerSheet>
+                      </>
                     ))
                   ) : (
                     <tr>
