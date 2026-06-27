@@ -24,11 +24,19 @@ type ChatOptions = {
 
 function getGeminiConfig() {
   const apiKey = process.env.GEMINI_API_KEY;
+  
+  // Debug logging
   if (!apiKey) {
+    console.error("❌ GEMINI_API_KEY not found in environment");
+    console.error("Available env keys:", Object.keys(process.env).filter(k => k.includes("GEMINI")));
     throw new GeminiError(
       "GEMINI_API_KEY is not configured. Add it to your .env file or Netlify environment variables.",
     );
   }
+  
+  // Log API key format for debugging (first 10 chars only)
+  console.log("✅ GEMINI_API_KEY found, starts with:", apiKey.slice(0, 10));
+  console.log("✅ API key length:", apiKey.length);
 
   return {
     apiKey,
@@ -69,6 +77,12 @@ export async function chatWithGemini({
 
   const url = `${GEMINI_URL}/${modelName}:generateContent?key=${config.apiKey}`;
 
+  console.log("🔵 Gemini request starting...");
+  console.log("🔵 Model:", modelName);
+  console.log("🔵 URL (masked):", url.replace(config.apiKey, "***API_KEY***"));
+  console.log("🔵 Contents length:", contents.length);
+  console.log("🔵 Has system instruction:", !!systemInstruction);
+
   const requestBody: any = {
     contents,
     generationConfig: {
@@ -84,36 +98,72 @@ export async function chatWithGemini({
     };
   }
 
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(requestBody),
-  });
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(requestBody),
+    });
 
-  if (!response.ok) {
-    const body = await response.text();
+    console.log("🔵 Response status:", response.status);
+    console.log("🔵 Response headers:", Object.fromEntries(response.headers.entries()));
+
+    if (!response.ok) {
+      const body = await response.text();
+      console.error("❌ Gemini error response:", body);
+      
+      // Provide helpful error messages
+      if (response.status === 401) {
+        throw new GeminiError(
+          `Authentication failed. Please verify your GEMINI_API_KEY is correct. It should start with "AIza". Error: ${body.slice(0, 200)}`,
+          response.status,
+        );
+      }
+      
+      throw new GeminiError(
+        `Gemini request failed (${response.status}): ${body.slice(0, 300)}`,
+        response.status,
+      );
+    }
+
+    const payload = (await response.json()) as {
+      candidates?: Array<{
+        content?: {
+          parts?: Array<{ text?: string }>;
+        };
+      }>;
+    };
+
+    const content = payload.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+    if (!content) {
+      console.error("❌ No content in response:", JSON.stringify(payload, null, 2));
+      throw new GeminiError("Gemini returned an empty response.");
+    }
+
+    console.log("✅ Gemini request successful, content length:", content.length);
+    return content;
+  } catch (error) {
+    console.error("❌ Gemini error caught:", error);
+    
+    // Re-throw GeminiError as-is
+    if (error instanceof GeminiError) {
+      throw error;
+    }
+    
+    // Wrap network errors
+    if (error instanceof TypeError && error.message.includes("fetch")) {
+      throw new GeminiError(
+        `Network error: Unable to reach Gemini API. Check your internet connection. ${error.message}`,
+      );
+    }
+    
+    // Wrap any other errors
     throw new GeminiError(
-      `Gemini request failed (${response.status}): ${body.slice(0, 300)}`,
-      response.status,
+      `Unexpected error calling Gemini: ${error instanceof Error ? error.message : String(error)}`,
     );
   }
-
-  const payload = (await response.json()) as {
-    candidates?: Array<{
-      content?: {
-        parts?: Array<{ text?: string }>;
-      };
-    }>;
-  };
-
-  const content = payload.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-  if (!content) {
-    throw new GeminiError("Gemini returned an empty response.");
-  }
-
-  return content;
 }
 
 export function parseJsonResponse<T>(content: string): T {
