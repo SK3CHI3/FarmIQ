@@ -4,9 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowUpRight, TrendingUp, AlertTriangle, Users, CheckCircle2, Layers, Wallet } from "lucide-react";
 import { PageHeader, CompletenessBar, StatusBadge } from "@/components/page-header";
-import { activityFeed, baselineFieldCoverage, dataSources, farmers, paymentMix, stats, tierDistribution } from "@/data/sample";
+import { activityFeed, baselineFieldCoverage, dataSources, paymentMix, stats, tierDistribution } from "@/data/sample";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Cell, Pie, PieChart, RadialBar, RadialBarChart, PolarAngleAxis } from "recharts";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
+import { getFarmers } from "@/server/farmers.server";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -17,6 +18,7 @@ export const Route = createFileRoute("/")({
       { property: "og:description", content: "Overview of farmer data health, decision readiness and pending actions." },
     ],
   }),
+  loader: () => getFarmers(),
   component: Dashboard,
 });
 
@@ -59,7 +61,8 @@ function StatCard({
 }
 
 function Dashboard() {
-  const attention = [...farmers].sort((a, b) => a.completeness - b.completeness).slice(0, 5);
+  const dbFarmers = Route.useLoaderData();
+  const attention = [...dbFarmers].sort((a, b) => a.completeness - b.completeness).slice(0, 5);
   const chartData = dataSources.map((s) => ({
     name: s.short,
     full: s.name,

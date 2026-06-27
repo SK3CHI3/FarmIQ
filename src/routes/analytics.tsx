@@ -9,7 +9,8 @@ import {
   Line, LineChart, Legend, Radar, RadarChart, PolarAngleAxis, PolarGrid,
 } from "recharts";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
-import { dataSources, farmers } from "@/data/sample";
+import { dataSources } from "@/data/sample";
+import { getFarmers } from "@/server/farmers.server";
 
 export const Route = createFileRoute("/analytics")({
   head: () => ({
@@ -18,19 +19,21 @@ export const Route = createFileRoute("/analytics")({
       { name: "description", content: "Compare data sources, regions and crop readiness across your farmer base." },
     ],
   }),
+  loader: () => getFarmers(),
   component: AnalyticsPage,
 });
 
 const regionTrend = [
-  { month: "Jan", Machakos: 58, Kisumu: 49, Kano: 32, Lagos: 41 },
-  { month: "Feb", Machakos: 62, Kisumu: 53, Kano: 36, Lagos: 44 },
-  { month: "Mar", Machakos: 68, Kisumu: 58, Kano: 41, Lagos: 48 },
-  { month: "Apr", Machakos: 73, Kisumu: 61, Kano: 44, Lagos: 52 },
-  { month: "May", Machakos: 79, Kisumu: 66, Kano: 47, Lagos: 55 },
-  { month: "Jun", Machakos: 84, Kisumu: 70, Kano: 51, Lagos: 58 },
+  { month: "Jan", "Central Valley": 58, "Eastern Highlands": 49 },
+  { month: "Feb", "Central Valley": 62, "Eastern Highlands": 53 },
+  { month: "Mar", "Central Valley": 68, "Eastern Highlands": 58 },
+  { month: "Apr", "Central Valley": 73, "Eastern Highlands": 61 },
+  { month: "May", "Central Valley": 79, "Eastern Highlands": 66 },
+  { month: "Jun", "Central Valley": 84, "Eastern Highlands": 70 },
 ];
 
 function AnalyticsPage() {
+  const farmers = Route.useLoaderData();
   const [metric, setMetric] = useState<"completeness" | "records">("completeness");
 
   const sourceData = dataSources.map((s) => ({
@@ -40,49 +43,57 @@ function AnalyticsPage() {
     records: s.records,
   }));
 
-  // Country comparison
+  // Derive country stats from real DB farmers
   const countries = ["Kenya", "Nigeria"] as const;
   const countryData = countries.map((c) => {
     const list = farmers.filter((f) => f.country === c);
+    if (!list.length) return { country: c, completeness: 0, creditReady: 0, insuranceReady: 0 };
     const avg = Math.round(list.reduce((a, f) => a + f.completeness, 0) / list.length);
-    const creditReady = list.filter((f) => f.credit === "ready").length;
-    const insuranceReady = list.filter((f) => f.insurance === "ready").length;
-    return { country: c, completeness: avg, creditReady: Math.round((creditReady / list.length) * 100), insuranceReady: Math.round((insuranceReady / list.length) * 100) };
+    const creditReady = Math.round((list.filter((f) => f.credit === "ready").length / list.length) * 100);
+    const insuranceReady = Math.round((list.filter((f) => f.insurance === "ready").length / list.length) * 100);
+    return { country: c, completeness: avg, creditReady, insuranceReady };
   });
 
-  const readinessRadar = countries.map((c) => {
-    const list = farmers.filter((f) => f.country === c);
-    const pct = (key: "credit" | "insurance" | "input") =>
-      Math.round((list.filter((f) => f[key] === "ready").length / list.length) * 100);
-    return { country: c, Credit: pct("credit"), Insurance: pct("insurance"), Input: pct("input") };
+  // Radar from real data
+  const regions = [...new Set(farmers.map((f) => f.region))];
+  const radarData = ["Credit", "Insurance", "Input"].map((axis) => {
+    const entry: Record<string, unknown> = { axis };
+    regions.forEach((r) => {
+      const list = farmers.filter((f) => f.region === r);
+      const key = axis.toLowerCase() as "credit" | "insurance" | "input";
+      entry[r] = list.length
+        ? Math.round((list.filter((f) => f[key] === "ready").length / list.length) * 100)
+        : 0;
+    });
+    return entry;
   });
-  const radarData = ["Credit", "Insurance", "Input"].map((axis) => ({
-    axis,
-    Kenya: readinessRadar[0][axis as "Credit"],
-    Nigeria: readinessRadar[1][axis as "Credit"],
-  }));
+
+  const radarConfig = regions.reduce(
+    (acc, r, i) => ({
+      ...acc,
+      [r]: { label: r, color: `oklch(${0.55 + i * 0.1} 0.15 ${160 + i * 60})` },
+    }),
+    {} as ChartConfig,
+  );
+
+  const trendRegions = [...new Set(regionTrend.flatMap((d) => Object.keys(d).filter((k) => k !== "month")))];
+  const trendConfig = trendRegions.reduce(
+    (acc, r, i) => ({
+      ...acc,
+      [r]: { label: r, color: `oklch(${0.55 + i * 0.12} 0.15 ${160 + i * 55})` },
+    }),
+    {} as ChartConfig,
+  );
 
   const sourceConfig = {
     completeness: { label: "Completeness %", color: "var(--primary)" },
     records: { label: "Records", color: "var(--primary)" },
   } satisfies ChartConfig;
 
-  const trendConfig = {
-    Machakos: { label: "Machakos", color: "var(--primary)" },
-    Kisumu: { label: "Kisumu", color: "oklch(0.7 0.15 200)" },
-    Kano: { label: "Kano", color: "oklch(0.68 0.16 50)" },
-    Lagos: { label: "Lagos", color: "oklch(0.6 0.18 320)" },
-  } satisfies ChartConfig;
-
   const countryConfig = {
     completeness: { label: "Completeness", color: "var(--primary)" },
     creditReady: { label: "Credit ready %", color: "oklch(0.7 0.15 200)" },
     insuranceReady: { label: "Insurance ready %", color: "oklch(0.68 0.16 50)" },
-  } satisfies ChartConfig;
-
-  const radarConfig = {
-    Kenya: { label: "Kenya", color: "var(--primary)" },
-    Nigeria: { label: "Nigeria", color: "oklch(0.68 0.16 50)" },
   } satisfies ChartConfig;
 
   return (
@@ -139,10 +150,9 @@ function AnalyticsPage() {
                   <YAxis tickLine={false} axisLine={false} fontSize={11} domain={[0, 100]} />
                   <ChartTooltip content={<ChartTooltipContent />} />
                   <Legend />
-                  <Line type="monotone" dataKey="Machakos" stroke="var(--color-Machakos)" strokeWidth={2} dot={false} />
-                  <Line type="monotone" dataKey="Kisumu" stroke="var(--color-Kisumu)" strokeWidth={2} dot={false} />
-                  <Line type="monotone" dataKey="Kano" stroke="var(--color-Kano)" strokeWidth={2} dot={false} />
-                  <Line type="monotone" dataKey="Lagos" stroke="var(--color-Lagos)" strokeWidth={2} dot={false} />
+                  {trendRegions.map((r) => (
+                    <Line key={r} type="monotone" dataKey={r} stroke={`var(--color-${r})`} strokeWidth={2} dot={false} />
+                  ))}
                 </LineChart>
               </ChartContainer>
             </CardContent>
@@ -152,7 +162,7 @@ function AnalyticsPage() {
         <TabsContent value="countries" className="mt-4">
           <Card className="shadow-none border">
             <CardHeader>
-              <CardTitle className="text-base">Kenya vs Nigeria</CardTitle>
+              <CardTitle className="text-base">Kenya vs Nigeria — live data</CardTitle>
             </CardHeader>
             <CardContent>
               <ChartContainer config={countryConfig} className="h-[320px] w-full">
@@ -174,7 +184,7 @@ function AnalyticsPage() {
         <TabsContent value="readiness" className="mt-4">
           <Card className="shadow-none border">
             <CardHeader>
-              <CardTitle className="text-base">Readiness profile by country</CardTitle>
+              <CardTitle className="text-base">Readiness profile by region — live data</CardTitle>
             </CardHeader>
             <CardContent>
               <ChartContainer config={radarConfig} className="h-[340px] w-full">
@@ -183,8 +193,9 @@ function AnalyticsPage() {
                   <PolarAngleAxis dataKey="axis" fontSize={11} />
                   <ChartTooltip content={<ChartTooltipContent />} />
                   <Legend />
-                  <Radar dataKey="Kenya" stroke="var(--color-Kenya)" fill="var(--color-Kenya)" fillOpacity={0.3} />
-                  <Radar dataKey="Nigeria" stroke="var(--color-Nigeria)" fill="var(--color-Nigeria)" fillOpacity={0.3} />
+                  {regions.map((r) => (
+                    <Radar key={r} dataKey={r} stroke={`var(--color-${r})`} fill={`var(--color-${r})`} fillOpacity={0.3} />
+                  ))}
                 </RadarChart>
               </ChartContainer>
             </CardContent>

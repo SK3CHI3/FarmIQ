@@ -1,5 +1,4 @@
 import { createServerFn } from "@tanstack/react-start";
-import { farmers } from "@/data/sample";
 import {
   runQualityScan,
   summarizeFarmersForAi,
@@ -7,6 +6,7 @@ import {
   type FarmerValidation,
 } from "@/lib/farmer-validation";
 import { chatWithOpenRouter, OpenRouterError, parseJsonResponse } from "./openrouter.server";
+import { getFarmers } from "./farmers.server";
 
 export type IntelligenceAnswer = {
   summary: string;
@@ -27,38 +27,30 @@ export type AutoFixSuggestion = {
   requiresHumanReview: boolean;
 };
 
-function getFarmerOrThrow(farmerId: string) {
-  const farmer = farmers.find((f) => f.id === farmerId);
-  if (!farmer) {
-    throw new Error(`Farmer ${farmerId} not found.`);
-  }
-  return farmer;
-}
-
 export const scanDataQuality = createServerFn({ method: "POST" }).handler(async () => {
+  const farmers = await getFarmers();
   return runQualityScan(farmers);
 });
 
 export const confirmFarmerData = createServerFn({ method: "POST" })
   .validator((data: { farmerId: string }) => {
-    if (!data?.farmerId?.trim()) {
-      throw new Error("farmerId is required.");
-    }
+    if (!data?.farmerId?.trim()) throw new Error("farmerId is required.");
     return data;
   })
   .handler(async ({ data }) => {
-    const farmer = getFarmerOrThrow(data.farmerId);
+    const farmers = await getFarmers();
+    const farmer = farmers.find((f) => f.id === data.farmerId);
+    if (!farmer) throw new Error(`Farmer ${data.farmerId} not found.`);
     return validateFarmer(farmer);
   });
 
 export const askIntelligence = createServerFn({ method: "POST" })
   .validator((data: { query: string }) => {
-    if (!data?.query?.trim()) {
-      throw new Error("query is required.");
-    }
+    if (!data?.query?.trim()) throw new Error("query is required.");
     return { query: data.query.trim() };
   })
   .handler(async ({ data }) => {
+    const farmers = await getFarmers();
     const dataset = summarizeFarmersForAi(farmers);
     const validations = farmers.map((f) => validateFarmer(f));
 
@@ -114,7 +106,9 @@ export const suggestDataFix = createServerFn({ method: "POST" })
     return { farmerId: data.farmerId.trim(), issue: data.issue.trim() };
   })
   .handler(async ({ data }) => {
-    const farmer = getFarmerOrThrow(data.farmerId);
+    const farmers = await getFarmers();
+    const farmer = farmers.find((f) => f.id === data.farmerId);
+    if (!farmer) throw new Error(`Farmer ${data.farmerId} not found.`);
     const validation: FarmerValidation = validateFarmer(farmer);
 
     const content = await chatWithOpenRouter({
@@ -132,11 +126,7 @@ export const suggestDataFix = createServerFn({ method: "POST" })
         },
         {
           role: "user",
-          content: JSON.stringify({
-            issue: data.issue,
-            farmer,
-            validation,
-          }),
+          content: JSON.stringify({ issue: data.issue, farmer, validation }),
         },
       ],
     });

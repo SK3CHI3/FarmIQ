@@ -5,7 +5,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, Copy, ShieldQuestion, FileWarning, ArrowRight, Loader2 } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
-import { farmers } from "@/data/sample";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
@@ -18,6 +17,8 @@ import {
 import { getAiErrorMessage } from "@/lib/ai-errors";
 import type { QualityScanResult } from "@/lib/farmer-validation";
 import { toast } from "sonner";
+import { getFarmers } from "@/server/farmers.server";
+import type { Farmer } from "@/data/sample";
 
 export const Route = createFileRoute("/data-quality")({
   head: () => ({
@@ -26,6 +27,7 @@ export const Route = createFileRoute("/data-quality")({
       { name: "description", content: "Diagnose missing, duplicated and unverified records across your farmer dataset." },
     ],
   }),
+  loader: () => getFarmers(),
   component: DataQualityPage,
 });
 
@@ -61,6 +63,7 @@ function IssueCard({
 }
 
 function DataQualityPage() {
+  const farmers = Route.useLoaderData();
   const [scan, setScan] = useState<QualityScanResult | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -90,15 +93,11 @@ function DataQualityPage() {
 
   const issueRows = issues.length
     ? issues
-    : [
-        { type: "Run a quality scan", count: 0, severity: "warning" as const, impact: "Click Run quality scan to evaluate your dataset.", farmerIds: [] },
-      ];
+    : [{ type: "Run a quality scan", count: 0, severity: "warning" as const, impact: "Click Run quality scan to evaluate your dataset.", farmerIds: [] }];
 
   const unverifiedFarmers = farmers.filter((f) =>
     scan?.validations.some(
-      (v) =>
-        v.farmerId === f.id &&
-        v.fieldChecks.some((check) => check.status === "unverified"),
+      (v) => v.farmerId === f.id && v.fieldChecks.some((check) => check.status === "unverified"),
     ),
   );
 
@@ -121,12 +120,12 @@ function DataQualityPage() {
         <IssueCard icon={FileWarning} label="Missing / unverified fields" count={summary.missingFields} tone="destructive" description="Across phone, GPS, land size and yield records" />
         <IssueCard icon={Copy} label="Duplicate records" count={summary.duplicates} tone="warning" description="Pairs across multiple sources" />
         <IssueCard icon={ShieldQuestion} label="Unverified data" count={summary.unverified} tone="warning" description="Need cross-source verification" />
-        <IssueCard icon={AlertTriangle} label="Consent missing" count={summary.consentMissing} tone="destructive" description="Block third-party data export" />
+        <IssueCard icon={AlertTriangle} label="Consent missing" count={summary.consentMissing} tone="destructive" description="Blocks third-party data export" />
       </div>
 
       {scan ? (
         <p className="text-xs text-muted-foreground mb-4">
-          Last scan: {new Date(scan.scannedAt).toLocaleString()} · average completeness {scan.averageCompleteness}%
+          Last scan: {new Date(scan.scannedAt).toLocaleString()} · {scan.totalFarmers} farmers · avg completeness {scan.averageCompleteness}%
         </p>
       ) : null}
 
@@ -156,28 +155,36 @@ function DataQualityPage() {
                     <tr key={q.type} className="border-b last:border-0 hover:bg-muted/30">
                       <td className="px-5 py-3 font-medium text-foreground">{q.type}</td>
                       <td className="px-5 py-3">
-                        <span
-                          className={`text-base font-semibold ${
-                            q.severity === "destructive" ? "text-destructive" : "text-[var(--warning)]"
-                          }`}
-                        >
+                        <span className={`text-base font-semibold ${q.severity === "destructive" ? "text-destructive" : "text-[var(--warning)]"}`}>
                           {q.count}
                         </span>
                       </td>
                       <td className="px-5 py-3 text-muted-foreground">{q.impact}</td>
                       <td className="px-5 py-3 text-right">
-                        <ReviewIssueDialog issue={q.type} count={q.count} impact={q.impact} farmerIds={q.farmerIds} />
+                        <ReviewIssueDialog
+                          issue={q.type}
+                          count={q.count}
+                          impact={q.impact}
+                          farmerIds={q.farmerIds}
+                          allFarmers={farmers}
+                        />
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </TabsContent>
+
             <TabsContent value="duplicates" className="m-0 p-6 space-y-3">
-              {farmers.slice(0, 3).map((f, i) => (
-                <MergeDialog key={f.id} left={f} right={farmers[i + 3]} />
-              ))}
+              {farmers.length >= 2 ? (
+                farmers.slice(0, Math.floor(farmers.length / 2)).map((f, i) => (
+                  <MergeDialog key={f.id} left={f} right={farmers[i + Math.ceil(farmers.length / 2)]} />
+                ))
+              ) : (
+                <EmptyTab title="No duplicates detected" sub="Run a quality scan to find duplicate farmer nodes across sources." cta="Run quality scan" onAction={() => void handleScan()} />
+              )}
             </TabsContent>
+
             <TabsContent value="unverified" className="m-0 p-8">
               {unverifiedFarmers.length ? (
                 <div className="space-y-2 text-sm">
@@ -192,25 +199,38 @@ function DataQualityPage() {
                         count={1}
                         impact="Needs field agent verification"
                         farmerIds={[f.id]}
+                        allFarmers={farmers}
                       />
                     </div>
                   ))}
                 </div>
               ) : (
-                <EmptyTab title="No unverified data points yet" sub="Run a quality scan to detect fields that need cross-source verification." cta="Run quality scan" onAction={() => void handleScan()} />
+                <EmptyTab
+                  title={scan ? "No unverified data points found" : "No unverified data points yet"}
+                  sub="Run a quality scan to detect fields that need cross-source verification."
+                  cta="Run quality scan"
+                  onAction={() => void handleScan()}
+                />
               )}
             </TabsContent>
+
             <TabsContent value="consent" className="m-0 p-8">
               <div className="rounded-lg border bg-muted/30 p-6">
                 <p className="text-sm">
-                  <span className="font-semibold">{consentMissingFarmers.length} farmers</span> have no consent record on file.
-                  These profiles will not be exported to third parties.
+                  <span className="font-semibold">{consentMissingFarmers.length} farmer{consentMissingFarmers.length !== 1 ? "s" : ""}</span>{" "}
+                  {consentMissingFarmers.length === 0
+                    ? "— all farmers have consent on file."
+                    : "have no consent record on file. These profiles will not be exported to third parties."}
                 </p>
-                <SendConsentDialog count={consentMissingFarmers.length} />
+                {consentMissingFarmers.length > 0 && (
+                  <SendConsentDialog count={consentMissingFarmers.length} />
+                )}
               </div>
-              <div className="mt-4 text-xs text-muted-foreground">
-                Sample: {consentMissingFarmers.map((f) => f.name).join(", ") || "None"}
-              </div>
+              {consentMissingFarmers.length > 0 && (
+                <div className="mt-4 text-xs text-muted-foreground">
+                  Affected: {consentMissingFarmers.map((f) => f.name).join(", ")}
+                </div>
+              )}
             </TabsContent>
           </CardContent>
         </Tabs>
@@ -219,17 +239,7 @@ function DataQualityPage() {
   );
 }
 
-function EmptyTab({
-  title,
-  sub,
-  cta,
-  onAction,
-}: {
-  title: string;
-  sub: string;
-  cta: string;
-  onAction?: () => void;
-}) {
+function EmptyTab({ title, sub, cta, onAction }: { title: string; sub: string; cta: string; onAction?: () => void }) {
   return (
     <div className="rounded-lg border border-dashed bg-muted/30 p-8 text-center">
       <h3 className="text-sm font-semibold text-foreground">{title}</h3>
@@ -240,18 +250,16 @@ function EmptyTab({
 }
 
 function ReviewIssueDialog({
-  issue,
-  count,
-  impact,
-  farmerIds,
+  issue, count, impact, farmerIds, allFarmers,
 }: {
   issue: string;
   count: number;
   impact: string;
   farmerIds: string[];
+  allFarmers: Farmer[];
 }) {
-  const sample = farmers.filter((f) => farmerIds.includes(f.id)).slice(0, 5);
-  const fallbackSample = sample.length ? sample : farmers.slice(0, Math.min(5, count));
+  const sample = allFarmers.filter((f) => farmerIds.includes(f.id)).slice(0, 5);
+  const fallbackSample = sample.length ? sample : allFarmers.slice(0, Math.min(5, Math.max(count, 1)));
   const targetFarmer = fallbackSample[0];
   const [loading, setLoading] = useState(false);
   const [suggestion, setSuggestion] = useState<AutoFixSuggestion | null>(null);
@@ -280,24 +288,28 @@ function ReviewIssueDialog({
           <DialogTitle>{issue}</DialogTitle>
           <DialogDescription>{count} affected farmers · {impact}</DialogDescription>
         </DialogHeader>
-        <div className="rounded-md border overflow-hidden">
-          <table className="w-full text-sm">
-            <thead><tr className="text-xs text-muted-foreground border-b bg-muted/40">
-              <th className="text-left font-medium px-4 py-2">Farmer</th>
-              <th className="text-left font-medium px-4 py-2">Region</th>
-              <th className="text-left font-medium px-4 py-2">Source</th>
-            </tr></thead>
-            <tbody>
-              {fallbackSample.map((f) => (
-                <tr key={f.id} className="border-b last:border-0">
-                  <td className="px-4 py-2 font-medium">{f.name}</td>
-                  <td className="px-4 py-2 text-muted-foreground">{f.region}</td>
-                  <td className="px-4 py-2 text-muted-foreground text-xs">{f.source}</td>
+        {fallbackSample.length > 0 && (
+          <div className="rounded-md border overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-xs text-muted-foreground border-b bg-muted/40">
+                  <th className="text-left font-medium px-4 py-2">Farmer</th>
+                  <th className="text-left font-medium px-4 py-2">Region</th>
+                  <th className="text-left font-medium px-4 py-2">Source</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {fallbackSample.map((f) => (
+                  <tr key={f.id} className="border-b last:border-0">
+                    <td className="px-4 py-2 font-medium">{f.name}</td>
+                    <td className="px-4 py-2 text-muted-foreground">{f.region}</td>
+                    <td className="px-4 py-2 text-muted-foreground text-xs">{f.source}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
         {suggestion ? (
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">{suggestion.summary}</p>
@@ -327,7 +339,7 @@ function ReviewIssueDialog({
   );
 }
 
-function MergeDialog({ left, right }: { left: typeof farmers[number]; right: typeof farmers[number] | undefined }) {
+function MergeDialog({ left, right }: { left: Farmer; right: Farmer | undefined }) {
   if (!right) return null;
   return (
     <Dialog>
@@ -343,7 +355,7 @@ function MergeDialog({ left, right }: { left: typeof farmers[number]; right: typ
               <div className="font-medium">{right.name}</div>
               <div className="text-xs text-muted-foreground">{right.source}</div>
             </div>
-            <Badge variant="secondary" className="bg-[var(--warning)]/15 text-[var(--warning)] border-0">92% match</Badge>
+            <Badge variant="secondary" className="bg-[var(--warning)]/15 text-[var(--warning)] border-0">potential match</Badge>
           </div>
         </button>
       </DialogTrigger>

@@ -3,14 +3,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MapPin, Eye, Flag, Search } from "lucide-react";
+import { MapPin, Eye, Flag, Search, Loader2 } from "lucide-react";
 import { PageHeader, CompletenessBar, StatusBadge } from "@/components/page-header";
-import { farmers } from "@/data/sample";
 import { FarmerSheet } from "@/components/farmer-sheet";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { getFarmers } from "@/server/farmers.server";
 
 export const Route = createFileRoute("/farmers")({
   head: () => ({
@@ -19,10 +19,12 @@ export const Route = createFileRoute("/farmers")({
       { name: "description", content: "Browse, search and filter individual farmer profiles." },
     ],
   }),
+  loader: () => getFarmers(),
   component: FarmersPage,
 });
 
 function FarmersPage() {
+  const farmers = Route.useLoaderData();
   return (
     <div>
       <PageHeader
