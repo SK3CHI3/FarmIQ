@@ -6,7 +6,7 @@ import {
   type FarmerValidation,
 } from "@/lib/farmer-validation";
 import { chatWithOpenRouter, OpenRouterError, parseJsonResponse } from "./openrouter.server";
-import { getFarmers } from "./farmers.server";
+import { getFarmers } from "./farmers.functions";
 
 export type IntelligenceAnswer = {
   summary: string;
