@@ -1,8 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { UploadCloud, FileSpreadsheet, CheckCircle2 } from "lucide-react";
+import { UploadCloud, FileSpreadsheet, CheckCircle2, Loader2 } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { dataSources } from "@/data/sample";
 import {
@@ -10,6 +11,8 @@ import {
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
+import { ingestUploadToNeo4j } from "@/server/ingestion.functions";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/upload")({
   head: () => ({
@@ -121,6 +124,34 @@ function UploadPage() {
 }
 
 function ChooseFilePreviewDialog() {
+  const [loading, setLoading] = useState(false);
+
+  const previewRows = [
+    { name: "Amina Wanjiku", phone: "+254 712 884 221", region: "Machakos", crop: "Maize", coordinates: "-1.5, 37.2" },
+    { name: "James Ochieng", phone: "+254 733 552 109", region: "Kisumu", crop: "Sorghum", coordinates: "-0.1, 34.7" },
+    { name: "Grace Akinyi", phone: "+254 720 884 110", region: "Nakuru", crop: "Wheat", coordinates: "-0.3, 36.1" },
+    { name: "Mary Chebet", phone: "+254 711 002 314", region: "Eldoret", crop: "Maize", coordinates: "0.5, 35.3" },
+    { name: "Peter Mwangi", phone: "+254 700 112 884", region: "Nyeri", crop: "Coffee", coordinates: "-0.4, 36.9" },
+  ];
+
+  async function handleIngest() {
+    setLoading(true);
+    try {
+      const result = await ingestUploadToNeo4j({
+        data: {
+          sourceLabel: "Field Agent Export - June 2026",
+          regionScope: "Machakos, Kenya",
+          rows: previewRows,
+        },
+      });
+      toast.success(`Ingested ${result.records} records into Neo4j.`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Upload ingestion failed.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <Dialog>
       <DialogTrigger asChild><Button className="mt-5">Choose file</Button></DialogTrigger>
@@ -173,8 +204,10 @@ function ChooseFilePreviewDialog() {
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline">Cancel</Button>
-          <Button>Ingest 340 rows</Button>
+          <Button variant="outline" disabled={loading}>Cancel</Button>
+          <Button onClick={() => void handleIngest()} disabled={loading}>
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Ingest 340 rows"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
