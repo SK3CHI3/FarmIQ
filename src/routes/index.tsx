@@ -135,6 +135,70 @@ function Dashboard() {
         actions={<Button asChild><Link to="/upload">Upload data</Link></Button>}
       />
 
+      <Card className="mt-6 shadow-none border">
+        <CardHeader>
+          <CardTitle className="text-base">AI intelligence preview</CardTitle>
+          <p className="text-xs text-muted-foreground">Ask a live question about your data and see the parsed AI response immediately.</p>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col gap-3">
+            <div className="flex gap-2 flex-wrap">
+              <Input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Ask about missing fields, eligibility, or source gaps..."
+                className="flex-1 min-w-[220px]"
+                disabled={aiLoading}
+              />
+              <Button onClick={() => void handleAiQuestion()} disabled={aiLoading}>
+                {aiLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Run AI query"}
+              </Button>
+            </div>
+
+            {aiAnswer ? (
+              <div className="rounded-xl border bg-muted/50 p-4">
+                <p className="text-sm text-foreground font-semibold">AI summary</p>
+                <p className="mt-2 text-sm text-muted-foreground leading-relaxed">{aiAnswer.summary}</p>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  <div className="rounded-lg border bg-background p-3 text-xs">
+                    <p className="font-medium text-foreground">Sources</p>
+                    <p className="mt-1 text-muted-foreground">{aiAnswer.sources.length ? aiAnswer.sources.join(", ") : "None"}</p>
+                  </div>
+                  <div className="rounded-lg border bg-background p-3 text-xs">
+                    <p className="font-medium text-foreground">Matches</p>
+                    <p className="mt-1 text-muted-foreground">{aiAnswer.farmerIds.length ? `${aiAnswer.farmerIds.length} farmers identified` : "No matching farmers"}</p>
+                  </div>
+                </div>
+                {aiAnswer.reasoning ? (
+                  <div className="mt-3 rounded-lg border bg-background p-3 text-xs text-muted-foreground">
+                    <p className="font-medium text-foreground">Reasoning</p>
+                    <p className="mt-1 leading-relaxed">{aiAnswer.reasoning}</p>
+                  </div>
+                ) : null}
+                {aiAnswer.details && Object.keys(aiAnswer.details).length ? (
+                  <div className="mt-3 rounded-lg border bg-background p-3 text-xs text-muted-foreground">
+                    <p className="font-medium text-foreground">Details</p>
+                    <div className="mt-2 space-y-3">
+                      {Object.entries(aiAnswer.details).map(([farmerId, detail]) => (
+                        <div key={farmerId} className="rounded-md border p-2 bg-muted/20">
+                          <p className="font-medium text-foreground">{farmerId}</p>
+                          <p className="mt-1 text-xs">{detail.explanation}</p>
+                          {detail.matchedChecks?.length ? (
+                            <p className="mt-1 text-[11px] text-muted-foreground">Checks: {detail.matchedChecks.join(", ")}</p>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">Run a query to see AI intelligence here.</p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* ── Stat cards ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard label="Total farmers"    value={fmt(totalFarmers)}  hint="Live from Neo4j"                                              tone="good"    icon={Users} />
