@@ -107,7 +107,7 @@ function DataQualityPage() {
     <div>
       <PageHeader
         title="Data Quality"
-        description="Rule-based confirmation for tiers, readiness, and baseline fields — with OpenRouter suggestions for fixes."
+        description="Rule-based confirmation for tiers, readiness, and baseline fields — with Google Gemini suggestions for fixes."
         actions={
           <Button onClick={() => void handleScan()} disabled={loading}>
             {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}

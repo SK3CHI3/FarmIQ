@@ -5,7 +5,7 @@ import {
   validateFarmer,
   type FarmerValidation,
 } from "@/lib/farmer-validation";
-import { chatWithOpenRouter, OpenRouterError, parseJsonResponse } from "./openrouter.server";
+import { chatWithGemini, GeminiError, parseJsonResponse } from "./gemini.server";
 import { getFarmers } from "./farmers.functions";
 
 export type IntelligenceAnswer = {
@@ -54,7 +54,7 @@ export const askIntelligence = createServerFn({ method: "POST" })
     const dataset = summarizeFarmersForAi(farmers);
     const validations = farmers.map((f) => validateFarmer(f));
 
-    const content = await chatWithOpenRouter({
+    const content = await chatWithGemini({
       json: true,
       messages: [
         {
@@ -111,7 +111,7 @@ export const suggestDataFix = createServerFn({ method: "POST" })
     if (!farmer) throw new Error(`Farmer ${data.farmerId} not found.`);
     const validation: FarmerValidation = validateFarmer(farmer);
 
-    const content = await chatWithOpenRouter({
+    const content = await chatWithGemini({
       json: true,
       messages: [
         {
