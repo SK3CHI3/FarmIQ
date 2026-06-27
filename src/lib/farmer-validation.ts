@@ -220,57 +220,57 @@ export function runQualityScan(farmers: Farmer[]): QualityScanResult {
 
   const duplicateIds = findDuplicateFarmerIds(farmers);
 
-  const issues: QualityIssueSummary[] = [
+  const issues: QualityIssueSummary[] = ([
     {
       type: "Missing phone number",
       count: missingPhone.length,
-      severity: "destructive",
+      severity: "destructive" as const,
       impact: "Blocks SMS consent and follow-up.",
       farmerIds: missingPhone.map((v) => v.farmerId),
     },
     {
       type: "Missing GPS polygon",
       count: missingGps.length,
-      severity: "destructive",
+      severity: "destructive" as const,
       impact: "Blocks insurance geo-verification and KALRO weather match.",
       farmerIds: missingGps.map((f) => f.id),
     },
     {
       type: "Land size unverified",
       count: unverifiedLand.length,
-      severity: "warning",
+      severity: "warning" as const,
       impact: "Blocks full KIAMIS baseline coverage scoring.",
       farmerIds: unverifiedLand.map((v) => v.farmerId),
     },
     {
       type: "Duplicate farmer nodes",
       count: duplicateIds.length,
-      severity: "warning",
+      severity: "warning" as const,
       impact: "Same phone or national ID found across multiple sources.",
       farmerIds: duplicateIds,
     },
     {
       type: "Consent not collected (DPA 2019)",
       count: missingConsent.length,
-      severity: "destructive",
+      severity: "destructive" as const,
       impact: "Blocks third-party export under Kenya DPA 2019.",
       farmerIds: missingConsent.map((f) => f.id),
     },
     {
       type: "Consent pending confirmation",
       count: pendingConsent.length,
-      severity: "warning",
+      severity: "warning" as const,
       impact: "Farmer has not yet confirmed data sharing.",
       farmerIds: pendingConsent.map((f) => f.id),
     },
     {
       type: "Credit readiness blocked",
       count: creditBlocked.length,
-      severity: "warning",
+      severity: "warning" as const,
       impact: "Missing identity, payment history, or consent for credit products.",
       farmerIds: creditBlocked.map((v) => v.farmerId),
     },
-  ].filter((issue) => issue.count > 0);
+  ] satisfies QualityIssueSummary[]).filter((issue) => issue.count > 0);
 
   const averageCompleteness =
     validations.length === 0
