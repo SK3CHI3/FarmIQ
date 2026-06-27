@@ -5,8 +5,44 @@ import {
   validateFarmer,
   type FarmerValidation,
 } from "@/lib/farmer-validation";
-import { chatWithGemini, GeminiError, parseJsonResponse } from "./gemini.server";
+import { chatWithFeatherless, FeatherlessError, parseJsonResponse } from "./featherless.server";
 import { getFarmers } from "./farmers.functions";
+
+async function callFeatherlessJson<T>({
+  messages,
+  model,
+  temperature = 0.2,
+  max_tokens = 1024,
+}: {
+  messages: Array<{ role: string; content: string }>;
+  model?: string;
+  temperature?: number;
+  max_tokens?: number;
+}): Promise<T> {
+  try {
+    console.log('[AI] calling Featherless', { model, messages: messages.length, temperature, max_tokens });
+    const content = await chatWithFeatherless({
+      messages: messages as any,
+      model,
+      temperature,
+      json: true,
+      max_tokens,
+    });
+
+    console.log('[AI] raw response (truncated):', typeof content === 'string' ? content.slice(0, 1000) : JSON.stringify(content).slice(0, 1000));
+
+    const parsed = parseJsonResponse<T>(content);
+    console.log('[AI] parsed response keys:', parsed && typeof parsed === 'object' ? Object.keys(parsed as any) : typeof parsed);
+    return parsed;
+  } catch (err: any) {
+    console.error('[AI] call failed:', err?.message ?? String(err));
+    if (err instanceof FeatherlessError) {
+      throw new Error(`Featherless error${err.status ? ` (${err.status})` : ""}: ${err.message}`);
+    }
+    // preserve parse errors and others with context
+    throw new Error(`AI call failed: ${err?.message ?? String(err)}`);
+  }
+}
 
 export type IntelligenceAnswer = {
   summary: string;
@@ -33,7 +69,7 @@ export const scanDataQuality = createServerFn({ method: "POST" }).handler(async 
 });
 
 export const confirmFarmerData = createServerFn({ method: "POST" })
-  .inputValidator((data: { farmerId: string }) => {
+  .validator((data: { farmerId: string }) => {
     if (!data?.farmerId?.trim()) throw new Error("farmerId is required.");
     return data;
   })
@@ -45,7 +81,7 @@ export const confirmFarmerData = createServerFn({ method: "POST" })
   });
 
 export const askIntelligence = createServerFn({ method: "POST" })
-  .inputValidator((data: { query: string }) => {
+  .validator((data: { query: string }) => {
     if (!data?.query?.trim()) throw new Error("query is required.");
     return { query: data.query.trim() };
   })
@@ -54,8 +90,7 @@ export const askIntelligence = createServerFn({ method: "POST" })
     const dataset = summarizeFarmersForAi(farmers);
     const validations = farmers.map((f) => validateFarmer(f));
 
-    const content = await chatWithGemini({
-      json: true,
+    const parsed = await callFeatherlessJson<any>({
       messages: [
         {
           role: "system",
@@ -87,19 +122,51 @@ export const askIntelligence = createServerFn({ method: "POST" })
           }),
         },
       ],
+      max_tokens: 1024,
     });
-
-    const parsed = parseJsonResponse<IntelligenceAnswer>(content);
+    // Normalize a variety of LLM outputs into the expected IntelligenceAnswer shape.
     const knownIds = new Set(farmers.map((f) => f.id));
 
-    return {
-      ...parsed,
-      farmerIds: (parsed.farmerIds ?? []).filter((id) => knownIds.has(id)),
+    // Helper: convert numeric-keyed objects or arrays to a simple array of ids
+    function toIdArray(x: any): string[] {
+      if (!x) return [];
+      if (Array.isArray(x)) return x.map(String);
+      // numeric-keyed object: {"0":"FQ-001","1":"FQ-002"}
+      const keys = Object.keys(x);
+      const allNumeric = keys.length > 0 && keys.every((k) => /^\d+$/.test(k));
+      if (allNumeric) {
+        return keys
+          .sort((a, b) => Number(a) - Number(b))
+          .map((k) => String(x[k]));
+      }
+      // fallback: if it's an object with farmerIds property that's a string of comma-separated ids
+      if (typeof x === 'string') {
+        try {
+          const parsed = JSON.parse(x);
+          return toIdArray(parsed);
+        } catch {}
+        return x.split(/[,\s]+/).filter(Boolean);
+      }
+      return [];
+    }
+
+    const normalized: IntelligenceAnswer = {
+      summary: typeof parsed?.summary === 'string' ? parsed.summary : (Array.isArray(parsed) ? `Found ${parsed.length} farmers` : ''),
+      farmerIds: toIdArray(parsed?.farmerIds ?? parsed),
+      sources: Array.isArray(parsed?.sources) ? parsed.sources : [],
+      reasoning: typeof parsed?.reasoning === 'string' ? parsed.reasoning : '',
     };
+
+    console.log('[AI] normalized response keys:', Object.keys(normalized), 'farmerIds length', normalized.farmerIds.length);
+
+    // filter to known IDs
+    normalized.farmerIds = normalized.farmerIds.filter((id) => knownIds.has(id));
+
+    return normalized;
   });
 
 export const suggestDataFix = createServerFn({ method: "POST" })
-  .inputValidator((data: { farmerId: string; issue: string }) => {
+  .validator((data: { farmerId: string; issue: string }) => {
     if (!data?.farmerId?.trim() || !data?.issue?.trim()) {
       throw new Error("farmerId and issue are required.");
     }
@@ -111,8 +178,7 @@ export const suggestDataFix = createServerFn({ method: "POST" })
     if (!farmer) throw new Error(`Farmer ${data.farmerId} not found.`);
     const validation: FarmerValidation = validateFarmer(farmer);
 
-    const content = await chatWithGemini({
-      json: true,
+    const parsed = await callFeatherlessJson<AutoFixSuggestion>({
       messages: [
         {
           role: "system",
@@ -129,7 +195,13 @@ export const suggestDataFix = createServerFn({ method: "POST" })
           content: JSON.stringify({ issue: data.issue, farmer, validation }),
         },
       ],
+      max_tokens: 512,
     });
 
-    return parseJsonResponse<AutoFixSuggestion>(content);
+    // Basic validation of returned shape
+    if (!parsed || typeof parsed !== "object" || !parsed.summary) {
+      throw new Error("AI returned invalid suggestion format.");
+    }
+
+    return parsed;
   });
