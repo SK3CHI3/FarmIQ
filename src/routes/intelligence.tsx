@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,6 +37,14 @@ function IntelligencePage() {
   const matchedFarmers = answer
     ? farmers.filter((f) => answer.farmerIds.includes(f.id))
     : [];
+
+  const noMatchMessage = answer
+    ? answer.farmerIds.length === 0
+      ? answer.summary || "No farmers match this query."
+      : "No matching farmers yet."
+    : loading
+    ? "Generating answer…"
+    : "No matching farmers yet.";
 
   async function handleAsk(nextQuery = query) {
     const trimmed = nextQuery.trim();
@@ -117,8 +125,8 @@ function IntelligencePage() {
                 <tbody>
                   {matchedFarmers.length ? (
                     matchedFarmers.map((f) => (
-                      <>
-                        <tr key={f.id} className="border-b last:border-0 hover:bg-muted/30">
+                      <Fragment key={f.id}>
+                        <tr className="border-b last:border-0 hover:bg-muted/30">
                           <td className="px-4 py-2.5 font-medium text-primary">{f.name}</td>
                           <td className="px-4 py-2.5 text-muted-foreground">{f.region}</td>
                           <td className="px-4 py-2.5 text-muted-foreground">{f.crop}</td>
@@ -135,12 +143,12 @@ function IntelligencePage() {
                             </td>
                           </tr>
                         ) : null}
-                      </>
+                      </Fragment>
                     ))
                   ) : (
                     <tr>
                       <td colSpan={5} className="px-4 py-8 text-center text-sm text-muted-foreground">
-                        {loading ? "Generating answer…" : "No matching farmers yet."}
+                        {noMatchMessage}
                       </td>
                     </tr>
                   )}

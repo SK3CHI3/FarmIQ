@@ -1,10 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Link } from "@tanstack/react-router";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowUpRight, TrendingUp, AlertTriangle, Users, CheckCircle2, Layers, Wallet } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { ArrowUpRight, TrendingUp, AlertTriangle, Users, CheckCircle2, Layers, Wallet, Loader2 } from "lucide-react";
 import { PageHeader, CompletenessBar, StatusBadge } from "@/components/page-header";
 import { fmt } from "@/data/sample";
+import { getAiErrorMessage } from "@/lib/ai-errors";
+import { askIntelligence, type IntelligenceAnswer } from "@/server/ai.functions";
+import { toast } from "sonner";
 import {
   Bar, BarChart, CartesianGrid, XAxis, YAxis, Cell,
   Pie, PieChart, RadialBar, RadialBarChart, PolarAngleAxis,
@@ -94,6 +99,33 @@ function Dashboard() {
     (acc, p) => ({ ...acc, [p.name]: { label: p.name, color: p.color } }),
     {} as ChartConfig,
   );
+
+  const [query, setQuery] = useState("Which source has the most missing Tier 1 baseline fields?");
+  const [aiAnswer, setAiAnswer] = useState<IntelligenceAnswer | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+
+  const matchedAiFarmers = aiAnswer ? farmers.filter((f) => aiAnswer.farmerIds.includes(f.id)) : [];
+  const aiNoMatchMessage = aiAnswer && aiAnswer.farmerIds.length === 0
+    ? "No farmers match this query."
+    : null;
+
+  async function handleAiQuestion(nextQuery = query) {
+    const trimmed = nextQuery.trim();
+    if (!trimmed) {
+      toast.error("Enter a question first.");
+      return;
+    }
+    setAiLoading(true);
+    try {
+      const result = await askIntelligence({ data: { query: trimmed } });
+      setAiAnswer(result);
+      setQuery(trimmed);
+    } catch (error) {
+      toast.error(getAiErrorMessage(error));
+    } finally {
+      setAiLoading(false);
+    }
+  }
 
   return (
     <div>
@@ -255,6 +287,54 @@ function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      <Card className="mt-6 shadow-none border">
+        <CardHeader>
+          <CardTitle className="text-base">AI intelligence preview</CardTitle>
+          <p className="text-xs text-muted-foreground">Ask a dataset question directly from the dashboard and see the result in context.</p>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col gap-3">
+            <div className="flex gap-2 flex-wrap">
+              <Input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Ask about missing fields, eligibility, or source gaps..."
+                className="flex-1 min-w-[220px]"
+                disabled={aiLoading}
+              />
+              <Button onClick={() => void handleAiQuestion()} disabled={aiLoading}>
+                {aiLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Run AI query"}
+              </Button>
+            </div>
+
+            {aiAnswer ? (
+              <div className="rounded-xl border bg-muted/50 p-4">
+                <p className="text-sm text-foreground font-semibold">AI summary</p>
+                <p className="mt-2 text-sm text-muted-foreground leading-relaxed">{aiAnswer.summary}</p>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  <div className="rounded-lg border bg-background p-3 text-xs">
+                    <p className="font-medium text-foreground">Sources</p>
+                    <p className="mt-1 text-muted-foreground">{aiAnswer.sources.length ? aiAnswer.sources.join(", ") : "None"}</p>
+                  </div>
+                  <div className="rounded-lg border bg-background p-3 text-xs">
+                    <p className="font-medium text-foreground">Matches</p>
+                    <p className="mt-1 text-muted-foreground">{aiAnswer.farmerIds.length ? `${aiAnswer.farmerIds.length} farmers identified` : "No matching farmers"}</p>
+                  </div>
+                </div>
+                {aiAnswer.reasoning ? (
+                  <div className="mt-3 rounded-lg border bg-background p-3 text-xs text-muted-foreground">
+                    <p className="font-medium text-foreground">Reasoning</p>
+                    <p className="mt-1 leading-relaxed">{aiAnswer.reasoning}</p>
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">Run a query to see AI intelligence here.</p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* ── Attention table ── */}
       <Card className="mt-6 shadow-none border">
