@@ -16,7 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { askIntelligence, type IntelligenceAnswer } from "@/server/ai.functions";
 import { getAiErrorMessage } from "@/lib/ai-errors";
 import { toast } from "sonner";
-import { getFarmers } from "@/server/farmers.server";
+import { getFarmers } from "@/server/farmers.functions";
 
 export const Route = createFileRoute("/intelligence")({
   head: () => ({

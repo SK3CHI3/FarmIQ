@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { ingestUploadToNeo4j } from "@/server/ingestion.functions";
-import { getSources } from "@/server/dashboard.server";
+import { getSources } from "@/lib/dashboard.functions";
 import { toast } from "sonner";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";

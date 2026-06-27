@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { getNeo4jDriver } from "./neo4j.server";
+import { getNeo4jDriver } from "@/server/neo4j.server";
 
 async function query<T = Record<string, unknown>>(
   cypher: string,

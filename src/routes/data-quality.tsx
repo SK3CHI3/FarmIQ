@@ -17,7 +17,7 @@ import {
 import { getAiErrorMessage } from "@/lib/ai-errors";
 import type { QualityScanResult } from "@/lib/farmer-validation";
 import { toast } from "sonner";
-import { getFarmers } from "@/server/farmers.server";
+import { getFarmers } from "@/server/farmers.functions";
 import type { Farmer } from "@/data/sample";
 
 export const Route = createFileRoute("/data-quality")({

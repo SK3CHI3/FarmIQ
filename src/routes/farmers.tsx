@@ -10,7 +10,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { getFarmers } from "@/server/farmers.server";
+import { getFarmers } from "@/server/farmers.functions";
 
 export const Route = createFileRoute("/farmers")({
   head: () => ({
