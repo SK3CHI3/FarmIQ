@@ -33,7 +33,7 @@ export const scanDataQuality = createServerFn({ method: "POST" }).handler(async 
 });
 
 export const confirmFarmerData = createServerFn({ method: "POST" })
-  .validator((data: { farmerId: string }) => {
+  .inputValidator((data: { farmerId: string }) => {
     if (!data?.farmerId?.trim()) throw new Error("farmerId is required.");
     return data;
   })
@@ -45,7 +45,7 @@ export const confirmFarmerData = createServerFn({ method: "POST" })
   });
 
 export const askIntelligence = createServerFn({ method: "POST" })
-  .validator((data: { query: string }) => {
+  .inputValidator((data: { query: string }) => {
     if (!data?.query?.trim()) throw new Error("query is required.");
     return { query: data.query.trim() };
   })
@@ -99,7 +99,7 @@ export const askIntelligence = createServerFn({ method: "POST" })
   });
 
 export const suggestDataFix = createServerFn({ method: "POST" })
-  .validator((data: { farmerId: string; issue: string }) => {
+  .inputValidator((data: { farmerId: string; issue: string }) => {
     if (!data?.farmerId?.trim() || !data?.issue?.trim()) {
       throw new Error("farmerId and issue are required.");
     }

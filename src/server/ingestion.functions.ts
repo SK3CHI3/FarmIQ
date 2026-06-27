@@ -62,7 +62,7 @@ function cleanRow(row: UploadFarmerRow, index: number) {
 }
 
 export const ingestUploadToNeo4j = createServerFn({ method: "POST" })
-  .validator((data: UploadIngestionInput) => {
+  .inputValidator((data: UploadIngestionInput) => {
     const sourceLabel = data?.sourceLabel?.trim();
     const regionScope = data?.regionScope?.trim();
     const rows = Array.isArray(data?.rows) ? data.rows : [];
