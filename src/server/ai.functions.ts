@@ -49,6 +49,15 @@ export type IntelligenceAnswer = {
   farmerIds: string[];
   sources: string[];
   reasoning: string;
+  // Optional per-farmer details: keyed by farmerId with an explanation and optionally matched checks
+  details?: Record<
+    string,
+    {
+      explanation: string;
+      matchedChecks?: string[];
+      confidence?: "high" | "medium" | "low";
+    }
+  >;
 };
 
 export type AutoFixSuggestion = {
@@ -97,9 +106,11 @@ export const askIntelligence = createServerFn({ method: "POST" })
           content: [
             "You are FarmIQ, an agricultural data intelligence assistant for Kenya and Nigeria smallholder farmers.",
             "Answer using ONLY the provided farmer dataset and validation rules.",
-            "Return JSON with keys: summary (string), farmerIds (string[]), sources (string[]), reasoning (string).",
-            "farmerIds must only contain IDs from the dataset.",
-            "If no farmers match, return an empty farmerIds array and explain why in summary.",
+            "Return JSON with keys: summary (string), farmerIds (string[]), sources (string[]), reasoning (string), and details (object).",
+            "The 'details' object should map farmer IDs to an object with: explanation (string) describing why the farmer was included or excluded, optional matchedChecks (string[]) listing which validation checks passed, and optional confidence ('high'|'medium'|'low').",
+            "Example response shape: { summary: '...', farmerIds: ['FQ-001'], sources: [...], reasoning: '...', details: { 'FQ-001': { explanation: 'Has GPS and consent; credit ready', matchedChecks: ['gps','consent'], confidence: 'high' } } }",
+            "farmerIds must only contain IDs present in the provided dataset.",
+            "If no farmers match, return an empty farmerIds array and include a clear explanation in both summary and details (empty object or omitted).",
           ].join(" "),
         },
         {
@@ -155,6 +166,7 @@ export const askIntelligence = createServerFn({ method: "POST" })
       farmerIds: toIdArray(parsed?.farmerIds ?? parsed),
       sources: Array.isArray(parsed?.sources) ? parsed.sources : [],
       reasoning: typeof parsed?.reasoning === 'string' ? parsed.reasoning : '',
+      details: typeof parsed?.details === 'object' && parsed?.details ? parsed.details : undefined,
     };
 
     console.log('[AI] normalized response keys:', Object.keys(normalized), 'farmerIds length', normalized.farmerIds.length);

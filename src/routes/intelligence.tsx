@@ -126,6 +126,16 @@ function IntelligencePage() {
                           <td className="px-4 py-2.5"><CompletenessBar value={f.completeness} /></td>
                           <td className="px-4 py-2.5 text-xs text-muted-foreground">{f.source}</td>
                         </tr>
+                        {answer?.details?.[f.id] ? (
+                          <tr className="bg-muted/10">
+                            <td colSpan={5} className="px-4 py-2 text-sm text-muted-foreground">
+                              <strong>Why:</strong> {answer.details[f.id].explanation}
+                              {answer.details[f.id].matchedChecks ? (
+                                <span> — Checks: {answer.details[f.id].matchedChecks.join(', ')}</span>
+                              ) : null}
+                            </td>
+                          </tr>
+                        ) : null}
                       </FarmerSheet>
                     ))
                   ) : (
