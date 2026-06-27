@@ -220,7 +220,7 @@ function UploadPage() {
                         <span className="font-medium">{s.name}</span>
                       </div>
                     </td>
-                    <td className="px-5 py-3 text-muted-foreground">{s.records.toLocaleString()}</td>
+                    <td className="px-5 py-3 text-muted-foreground">{s.records.toLocaleString("en-US")}</td>
                     <td className="px-5 py-3">
                       <span className={`text-sm font-medium ${s.completeness >= 70 ? "text-primary" : s.completeness >= 40 ? "text-[var(--warning)]" : "text-destructive"}`}>
                         {s.completeness}%
@@ -296,7 +296,7 @@ function DropZone({ isDragging, parsedFile, onDrop, onDragOver, onDragLeave, onF
               <p className="text-sm text-destructive mt-1">{parsedFile.error}</p>
             ) : (
               <p className="text-sm text-muted-foreground mt-1">
-                {parsedFile.rows.length.toLocaleString()} rows · {parsedFile.headers.length} columns detected
+                {parsedFile.rows.length.toLocaleString("en-US")} rows · {parsedFile.headers.length} columns detected
               </p>
             )}
           </div>

@@ -24,6 +24,11 @@ export interface Farmer {
   source: string;
 }
 
+/** SSR-safe number formatter — always uses en-US so server and client match */
+export function fmt(n: number): string {
+  return n.toLocaleString("en-US");
+}
+
 // ── Static chart/UI config ────────────────────────────────────────────────────
 
 export const dataSources = [

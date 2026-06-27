@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowUpRight, TrendingUp, AlertTriangle, Users, CheckCircle2, Layers, Wallet } from "lucide-react";
 import { PageHeader, CompletenessBar, StatusBadge } from "@/components/page-header";
-import { activityFeed, baselineFieldCoverage, dataSources, paymentMix, stats, tierDistribution } from "@/data/sample";
+import { activityFeed, baselineFieldCoverage, dataSources, fmt, paymentMix, tierDistribution } from "@/data/sample";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Cell, Pie, PieChart, RadialBar, RadialBarChart, PolarAngleAxis } from "recharts";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { getFarmers } from "@/server/farmers.server";
@@ -63,6 +63,16 @@ function StatCard({
 function Dashboard() {
   const dbFarmers = Route.useLoaderData();
   const attention = [...dbFarmers].sort((a, b) => a.completeness - b.completeness).slice(0, 5);
+
+  // Compute live stats from DB
+  const totalFarmers = dbFarmers.length;
+  const completenessPct = totalFarmers
+    ? Math.round(dbFarmers.reduce((s, f) => s + f.completeness, 0) / totalFarmers)
+    : 0;
+  const decisionReady = dbFarmers.filter(
+    (f) => f.credit === "ready" || f.insurance === "ready" || f.input === "ready",
+  ).length;
+  const pendingActions = dbFarmers.filter((f) => f.consent === "Pending").length;
   const chartData = dataSources.map((s) => ({
     name: s.short,
     full: s.name,
@@ -73,7 +83,7 @@ function Dashboard() {
     completeness: { label: "Completeness %", color: "var(--primary)" },
   } satisfies ChartConfig;
 
-  const readinessPct = Math.round((stats.decisionReady / stats.totalFarmers) * 100);
+  const readinessPct = totalFarmers ? Math.round((decisionReady / totalFarmers) * 100) : 0;
   const readinessData = [{ name: "ready", value: readinessPct, fill: "var(--primary)" }];
   const tierConfig = { count: { label: "Farmers", color: "var(--primary)" } } satisfies ChartConfig;
   const baselineConfig = { coverage: { label: "Coverage %", color: "var(--primary)" } } satisfies ChartConfig;
@@ -93,10 +103,10 @@ function Dashboard() {
         }
       />
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Total farmers" value={stats.totalFarmers.toLocaleString()} hint="+340 this week" tone="good" icon={Users} />
-        <StatCard label="Data completeness" value={`${stats.completenessPct}%`} hint="Above 70% threshold" tone="good" icon={TrendingUp} />
-        <StatCard label="Decision-ready" value={stats.decisionReady.toLocaleString()} hint="66% of farmer base" tone="default" icon={CheckCircle2} />
-        <StatCard label="Pending actions" value={stats.pendingActions} hint="Awaiting human review" tone="bad" icon={AlertTriangle} />
+        <StatCard label="Total farmers" value={fmt(totalFarmers)} hint="Live from Neo4j" tone="good" icon={Users} />
+        <StatCard label="Data completeness" value={`${completenessPct}%`} hint={completenessPct >= 70 ? "Above 70% threshold" : "Below 70% threshold"} tone={completenessPct >= 70 ? "good" : "warning"} icon={TrendingUp} />
+        <StatCard label="Decision-ready" value={fmt(decisionReady)} hint={`${readinessPct}% of farmer base`} tone="default" icon={CheckCircle2} />
+        <StatCard label="Pending actions" value={pendingActions} hint="Awaiting human review" tone="bad" icon={AlertTriangle} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-6">
@@ -145,7 +155,7 @@ function Dashboard() {
             </ChartContainer>
             <div className="-mt-[140px] text-center pointer-events-none">
               <div className="text-3xl font-semibold tracking-tight text-foreground">{readinessPct}%</div>
-              <div className="text-[11px] uppercase tracking-wider text-muted-foreground">{stats.decisionReady.toLocaleString()} farmers</div>
+              <div className="text-[11px] uppercase tracking-wider text-muted-foreground">{fmt(decisionReady)} farmers</div>
             </div>
             <div className="mt-[60px] grid grid-cols-3 gap-2 text-center text-[11px]">
               <div><div className="font-semibold text-foreground">62%</div><div className="text-muted-foreground">Credit</div></div>
@@ -203,7 +213,7 @@ function Dashboard() {
               {paymentMix.map((p) => (
                 <li key={p.name} className="flex items-center justify-between">
                   <span className="flex items-center gap-2 text-foreground"><span className="h-2 w-2 rounded-full" style={{ background: p.color }} />{p.name}</span>
-                  <span className="text-muted-foreground">{p.value.toLocaleString()}</span>
+                  <span className="text-muted-foreground">{p.value.toLocaleString("en-US")}</span>
                 </li>
               ))}
             </ul>
