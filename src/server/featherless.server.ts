@@ -97,10 +97,26 @@ export async function chatWithFeatherless({
   return content;
 }
 
+function wrapObjectLikeContent(content: string) {
+  const trimmed = content.trim();
+  if (/^[\{\[]/.test(trimmed)) return trimmed;
+
+  // If content looks like key/value pairs without surrounding braces, wrap it.
+  const keyValueLine = /^['"]?[a-zA-Z0-9_-]+['"]?\s*:/;
+  const lines = trimmed.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  if (lines.length > 0 && lines.every((line) => keyValueLine.test(line))) {
+    return `{${trimmed}}`;
+  }
+
+  return trimmed;
+}
+
 export function parseJsonResponse<T>(content: string): T {
+  const normalized = wrapObjectLikeContent(content);
+
   // 1) Direct JSON
   try {
-    return JSON.parse(content) as T;
+    return JSON.parse(normalized) as T;
   } catch (e) {
     // continue to tolerant parsing
   }
@@ -142,7 +158,7 @@ export function parseJsonResponse<T>(content: string): T {
 
   // 4) Lightweight repair: convert single quotes to double quotes and remove trailing commas
   try {
-    const repaired = content
+    const repaired = normalized
       .replace(/\u2018|\u2019|\u201C|\u201D/g, '"')
       .replace(/([\{,\[]\s*)'(.*?)'(?=\s*[:\]}])/g, '$1"$2"')
       .replace(/,\s*([}\]])/g, '$1');

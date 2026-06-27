@@ -392,6 +392,12 @@ function Dashboard() {
                     <p className="mt-1 leading-relaxed">{aiAnswer.reasoning}</p>
                   </div>
                 ) : null}
+                {aiAnswer.rawResponse ? (
+                  <div className="mt-3 rounded-lg border bg-background p-3 text-xs text-muted-foreground">
+                    <p className="font-medium text-foreground">Raw AI response</p>
+                    <pre className="mt-2 max-h-56 overflow-auto whitespace-pre-wrap rounded bg-muted/30 p-3 text-[11px]">{aiAnswer.rawResponse}</pre>
+                  </div>
+                ) : null}
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">Run a query to see AI intelligence here.</p>

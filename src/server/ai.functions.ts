@@ -18,7 +18,7 @@ async function callFeatherlessJson<T>({
   model?: string;
   temperature?: number;
   max_tokens?: number;
-}): Promise<T> {
+}): Promise<T | string> {
   try {
     console.log('[AI] calling Featherless', { model, messages: messages.length, temperature, max_tokens });
     const content = await chatWithFeatherless({
@@ -31,15 +31,19 @@ async function callFeatherlessJson<T>({
 
     console.log('[AI] raw response (truncated):', typeof content === 'string' ? content.slice(0, 1000) : JSON.stringify(content).slice(0, 1000));
 
-    const parsed = parseJsonResponse<T>(content);
-    console.log('[AI] parsed response keys:', parsed && typeof parsed === 'object' ? Object.keys(parsed as any) : typeof parsed);
-    return parsed;
+    try {
+      const parsed = parseJsonResponse<T>(content);
+      console.log('[AI] parsed response keys:', parsed && typeof parsed === 'object' ? Object.keys(parsed as any) : typeof parsed);
+      return parsed;
+    } catch (parseErr) {
+      console.warn('[AI] response not valid JSON, preserving raw output:', parseErr);
+      return content;
+    }
   } catch (err: any) {
     console.error('[AI] call failed:', err?.message ?? String(err));
     if (err instanceof FeatherlessError) {
       throw new Error(`Featherless error${err.status ? ` (${err.status})` : ""}: ${err.message}`);
     }
-    // preserve parse errors and others with context
     throw new Error(`AI call failed: ${err?.message ?? String(err)}`);
   }
 }
@@ -58,6 +62,7 @@ export type IntelligenceAnswer = {
       confidence?: "high" | "medium" | "low";
     }
   >;
+  rawResponse?: string;
 };
 
 export type AutoFixSuggestion = {
@@ -162,11 +167,16 @@ export const askIntelligence = createServerFn({ method: "POST" })
     }
 
     const normalized: IntelligenceAnswer = {
-      summary: typeof parsed?.summary === 'string' ? parsed.summary : (Array.isArray(parsed) ? `Found ${parsed.length} farmers` : ''),
+      summary: typeof parsed?.summary === 'string'
+        ? parsed.summary
+        : typeof parsed === 'string'
+        ? 'AI returned an unparsed response. See raw output for details.'
+        : (Array.isArray(parsed) ? `Found ${parsed.length} farmers` : ''),
       farmerIds: toIdArray(parsed?.farmerIds ?? parsed),
       sources: Array.isArray(parsed?.sources) ? parsed.sources : [],
       reasoning: typeof parsed?.reasoning === 'string' ? parsed.reasoning : '',
       details: typeof parsed?.details === 'object' && parsed?.details ? parsed.details : undefined,
+      rawResponse: typeof parsed === 'string' ? parsed : undefined,
     };
 
     console.log('[AI] normalized response keys:', Object.keys(normalized), 'farmerIds length', normalized.farmerIds.length);

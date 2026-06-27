@@ -111,6 +111,12 @@ function IntelligencePage() {
             {answer?.reasoning ? (
               <p className="text-sm text-muted-foreground mb-4">{answer.reasoning}</p>
             ) : null}
+            {answer?.rawResponse ? (
+              <div className="mb-4 rounded-lg border bg-muted/10 p-3 text-xs text-muted-foreground">
+                <p className="font-medium text-foreground">Raw AI response</p>
+                <pre className="mt-2 max-h-56 overflow-auto whitespace-pre-wrap rounded bg-muted/20 p-3 text-[11px]">{answer.rawResponse}</pre>
+              </div>
+            ) : null}
             <div className="rounded-lg border overflow-hidden">
               <table className="w-full text-sm">
                 <thead>
