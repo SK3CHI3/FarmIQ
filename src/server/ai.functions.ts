@@ -141,6 +141,17 @@ function rawResponseString(value: unknown): string {
   }
 }
 
+function shouldIncludeRawResponse(raw: unknown): boolean {
+  if (raw === undefined || raw === null) return false;
+  if (typeof raw === "string") {
+    const trimmed = raw.trim();
+    return trimmed !== "" && trimmed !== "[]" && trimmed !== "{}";
+  }
+  if (Array.isArray(raw)) return raw.length > 0;
+  if (typeof raw === "object") return Object.keys(raw).length > 0;
+  return true;
+}
+
 function normalizeIntelligenceAnswer(raw: unknown): IntelligenceAnswer {
   if (typeof raw === "string") {
     return {
@@ -148,7 +159,7 @@ function normalizeIntelligenceAnswer(raw: unknown): IntelligenceAnswer {
       farmerIds: [],
       sources: [],
       reasoning: "",
-      rawResponse: raw,
+      rawResponse: shouldIncludeRawResponse(raw) ? raw : undefined,
     };
   }
 
@@ -158,12 +169,13 @@ function normalizeIntelligenceAnswer(raw: unknown): IntelligenceAnswer {
       farmerIds: [],
       sources: [],
       reasoning: "",
-      rawResponse: rawResponseString(raw),
+      rawResponse: shouldIncludeRawResponse(raw) ? rawResponseString(raw) : undefined,
     };
   }
 
   const parsed = intelligenceSchema.safeParse(raw);
   const candidate = raw as Record<string, unknown>;
+  const rawResponse = shouldIncludeRawResponse(raw) ? rawResponseString(raw) : undefined;
 
   if (!parsed.success) {
     return {
@@ -172,7 +184,7 @@ function normalizeIntelligenceAnswer(raw: unknown): IntelligenceAnswer {
       sources: normalizeStringArray(candidate.sources),
       reasoning: normalizeText(candidate.reasoning),
       details: typeof candidate.details === "object" && candidate.details !== null ? (candidate.details as Record<string, any>) : undefined,
-      rawResponse: rawResponseString(raw),
+      rawResponse,
     };
   }
 
