@@ -1,4 +1,4 @@
-import { repair as repairJson } from "jsonrepair";
+import { jsonrepair as repairJson } from "jsonrepair";
 
 const FEATHERLESS_URL = (process.env.FEATHERLESS_BASE_URL ?? "https://api.featherless.ai/v1") + "/chat/completions";
 const DEFAULT_TIMEOUT_MS = 25_000;
