@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { z } from "zod";
 import {
   runQualityScan,
   summarizeFarmersForAi,
@@ -8,56 +9,88 @@ import {
 import { chatWithFeatherless, FeatherlessError, parseJsonResponse } from "./featherless.server";
 import { getFarmers } from "./farmers.functions";
 
-async function callFeatherlessJson<T>({
-  messages,
-  model,
-  temperature = 0.2,
-  max_tokens = 1024,
-}: {
-  messages: Array<{ role: string; content: string }>;
+type FeatherlessMessage = {
+  role: "system" | "user" | "assistant";
+  content: string;
+};
+
+type FeatherlessCallOptions = {
+  messages: FeatherlessMessage[];
   model?: string;
   temperature?: number;
   max_tokens?: number;
-}): Promise<T | string> {
+};
+
+async function callFeatherlessJson<T>(options: FeatherlessCallOptions): Promise<T | string> {
   try {
-    console.log('[AI] calling Featherless', { model, messages: messages.length, temperature, max_tokens });
+    console.debug('[AI] calling Featherless', { model: options.model, messages: options.messages.length, temperature: options.temperature, max_tokens: options.max_tokens });
     const content = await chatWithFeatherless({
-      messages: messages as any,
-      model,
-      temperature,
+      messages: options.messages,
+      model: options.model,
+      temperature: options.temperature,
       json: true,
-      max_tokens,
+      max_tokens: options.max_tokens,
     });
 
-    console.log('[AI] raw response (truncated):', typeof content === 'string' ? content.slice(0, 1000) : JSON.stringify(content).slice(0, 1000));
+    console.debug('[AI] raw response (truncated):', typeof content === 'string' ? content.slice(0, 1000) : JSON.stringify(content).slice(0, 1000));
 
     try {
       const parsed = parseJsonResponse<T>(content);
-      console.log('[AI] parsed response keys:', parsed && typeof parsed === 'object' ? Object.keys(parsed as any) : typeof parsed);
+      console.debug('[AI] parsed response keys:', parsed && typeof parsed === 'object' ? Object.keys(parsed as Record<string, unknown>) : typeof parsed);
       return parsed;
     } catch (parseErr) {
-      console.warn('[AI] response not valid JSON, preserving raw output:', parseErr);
+      console.warn('[AI] response not valid JSON, preserving raw output:', parseErr instanceof Error ? parseErr.message : String(parseErr));
       return content;
     }
-  } catch (err: any) {
-    console.error('[AI] call failed:', err?.message ?? String(err));
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[AI] call failed:', message);
     if (err instanceof FeatherlessError) {
       throw new Error(`Featherless error${err.status ? ` (${err.status})` : ""}: ${err.message}`);
     }
-    throw new Error(`AI call failed: ${err?.message ?? String(err)}`);
+    throw new Error(`AI call failed: ${message}`);
   }
 }
+
+const intelligenceSchema = z.object({
+  summary: z.string().optional(),
+  farmerIds: z.union([
+    z.array(z.string()),
+    z.string(),
+    z.record(z.string()),
+  ]).optional(),
+  sources: z.array(z.string()).optional(),
+  reasoning: z.string().optional(),
+  details: z.record(z.object({
+    explanation: z.string().optional(),
+    matchedChecks: z.array(z.string()).optional(),
+    confidence: z.enum(["high", "medium", "low"]).optional(),
+  })).optional(),
+}).passthrough();
+
+type IntelligenceAnswerInput = z.infer<typeof intelligenceSchema>;
+
+const autoFixSchema = z.object({
+  summary: z.string(),
+  suggestions: z.array(z.object({
+    field: z.string(),
+    currentValue: z.string().nullable(),
+    suggestedValue: z.string(),
+    confidence: z.enum(["high", "medium", "low"]),
+    rationale: z.string(),
+  })),
+  requiresHumanReview: z.boolean(),
+});
 
 export type IntelligenceAnswer = {
   summary: string;
   farmerIds: string[];
   sources: string[];
   reasoning: string;
-  // Optional per-farmer details: keyed by farmerId with an explanation and optionally matched checks
   details?: Record<
     string,
     {
-      explanation: string;
+      explanation?: string;
       matchedChecks?: string[];
       confidence?: "high" | "medium" | "low";
     }
@@ -65,17 +98,92 @@ export type IntelligenceAnswer = {
   rawResponse?: string;
 };
 
-export type AutoFixSuggestion = {
-  summary: string;
-  suggestions: Array<{
-    field: string;
-    currentValue: string | null;
-    suggestedValue: string;
-    confidence: "high" | "medium" | "low";
-    rationale: string;
-  }>;
-  requiresHumanReview: boolean;
-};
+export type AutoFixSuggestion = z.infer<typeof autoFixSchema>;
+
+function normalizeStringArray(value: unknown): string[] {
+  if (value === undefined || value === null) return [];
+  if (Array.isArray(value)) return value.map(String).filter(Boolean);
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      return normalizeStringArray(parsed);
+    } catch {
+      return value.split(/[\s,;]+/).map((item) => item.trim()).filter(Boolean);
+    }
+  }
+  if (typeof value === "object") {
+    const objectValue = value as Record<string, unknown>;
+    const keys = Object.keys(objectValue);
+    const allNumeric = keys.length > 0 && keys.every((key) => /^\d+$/.test(key));
+    if (allNumeric) {
+      return keys
+        .sort((a, b) => Number(a) - Number(b))
+        .map((key) => String(objectValue[key]))
+        .filter(Boolean);
+    }
+  }
+
+  return [];
+}
+
+function normalizeText(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (value === undefined || value === null) return "";
+  return String(value);
+}
+
+function rawResponseString(value: unknown): string {
+  if (typeof value === "string") return value;
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+}
+
+function normalizeIntelligenceAnswer(raw: unknown): IntelligenceAnswer {
+  if (typeof raw === "string") {
+    return {
+      summary: "AI returned an unparsed response. See raw output for details.",
+      farmerIds: [],
+      sources: [],
+      reasoning: "",
+      rawResponse: raw,
+    };
+  }
+
+  if (typeof raw !== "object" || raw === null) {
+    return {
+      summary: "AI returned an unexpected response type.",
+      farmerIds: [],
+      sources: [],
+      reasoning: "",
+      rawResponse: rawResponseString(raw),
+    };
+  }
+
+  const parsed = intelligenceSchema.safeParse(raw);
+  const candidate = raw as Record<string, unknown>;
+
+  if (!parsed.success) {
+    return {
+      summary: normalizeText(candidate.summary) || "AI returned a response that did not match the expected schema.",
+      farmerIds: normalizeStringArray(candidate.farmerIds ?? candidate),
+      sources: normalizeStringArray(candidate.sources),
+      reasoning: normalizeText(candidate.reasoning),
+      details: typeof candidate.details === "object" && candidate.details !== null ? (candidate.details as Record<string, any>) : undefined,
+      rawResponse: rawResponseString(raw),
+    };
+  }
+
+  return {
+    summary: normalizeText(parsed.data.summary) || "AI returned an incomplete response.",
+    farmerIds: normalizeStringArray(parsed.data.farmerIds),
+    sources: normalizeStringArray(parsed.data.sources),
+    reasoning: normalizeText(parsed.data.reasoning),
+    details: parsed.data.details,
+  };
+}
 
 export const scanDataQuality = createServerFn({ method: "POST" }).handler(async () => {
   const farmers = await getFarmers();
@@ -104,85 +212,69 @@ export const askIntelligence = createServerFn({ method: "POST" })
     const dataset = summarizeFarmersForAi(farmers);
     const validations = farmers.map((f) => validateFarmer(f));
 
-    const parsed = await callFeatherlessJson<any>({
-      messages: [
-        {
-          role: "system",
-          content: [
-            "You are FarmIQ, an agricultural data intelligence assistant for Kenya and Nigeria smallholder farmers.",
-            "Answer using ONLY the provided farmer dataset and validation rules.",
-            "Return JSON with keys: summary (string), farmerIds (string[]), sources (string[]), reasoning (string), and details (object).",
-            "The 'details' object should map farmer IDs to an object with: explanation (string) describing why the farmer was included or excluded, optional matchedChecks (string[]) listing which validation checks passed, and optional confidence ('high'|'medium'|'low').",
-            "Example response shape: { summary: '...', farmerIds: ['FQ-001'], sources: [...], reasoning: '...', details: { 'FQ-001': { explanation: 'Has GPS and consent; credit ready', matchedChecks: ['gps','consent'], confidence: 'high' } } }",
-            "farmerIds must only contain IDs present in the provided dataset.",
-            "If no farmers match, return an empty farmerIds array and include a clear explanation in both summary and details (empty object or omitted).",
-          ].join(" "),
-        },
-        {
-          role: "user",
-          content: JSON.stringify({
-            question: data.query,
-            farmers: dataset,
-            validationRules: {
-              tiers: {
-                1: "Identity — name plus national ID or phone",
-                2: "Farm + production — crop, region, cooperative or agent linkage",
-                3: "Financial — digital payment method and consent collected",
-                4: "Verified + geo — GPS, national ID, and consented",
+    let rawResponse: unknown;
+    try {
+      rawResponse = await callFeatherlessJson<unknown>({
+        messages: [
+          {
+            role: "system",
+            content: [
+              "You are FarmIQ, an agricultural data intelligence assistant for Kenya and Nigeria smallholder farmers.",
+              "Answer using ONLY the provided farmer dataset and validation rules.",
+              "Return JSON with keys: summary (string), farmerIds (string[]), sources (string[]), reasoning (string), and details (object).",
+              "The 'details' object should map farmer IDs to an object with: explanation (string) describing why the farmer was included or excluded, optional matchedChecks (string[]) listing which validation checks passed, and optional confidence ('high'|'medium'|'low').",
+              "Example response shape: { summary: '...', farmerIds: ['FQ-001'], sources: [...], reasoning: '...', details: { 'FQ-001': { explanation: 'Has GPS and consent; credit ready', matchedChecks: ['gps','consent'], confidence: 'high' } } }",
+              "farmerIds must only contain IDs present in the provided dataset.",
+              "If no farmers match, return an empty farmerIds array and include a clear explanation in both summary and details (empty object or omitted).",
+            ].join(" "),
+          },
+          {
+            role: "user",
+            content: JSON.stringify({
+              question: data.query,
+              farmers: dataset,
+              validationRules: {
+                tiers: {
+                  1: "Identity — name plus national ID or phone",
+                  2: "Farm + production — crop, region, cooperative or agent linkage",
+                  3: "Financial — digital payment method and consent collected",
+                  4: "Verified + geo — GPS, national ID, and consented",
+                },
+                credit: "Tier 3+, national ID, M-Pesa/Bank/Other digital payment, consent Consented",
+                insurance: "GPS polygon, crop, region, consent not Not collected",
+                input: "Crop, region, cooperative or field-agent linkage",
               },
-              credit: "Tier 3+, national ID, M-Pesa/Bank/Other digital payment, consent Consented",
-              insurance: "GPS polygon, crop, region, consent not Not collected",
-              input: "Crop, region, cooperative or field-agent linkage",
-            },
-            computedValidations: validations,
-          }),
-        },
-      ],
-      max_tokens: 1024,
-    });
-    // Normalize a variety of LLM outputs into the expected IntelligenceAnswer shape.
-    const knownIds = new Set(farmers.map((f) => f.id));
-
-    // Helper: convert numeric-keyed objects or arrays to a simple array of ids
-    function toIdArray(x: any): string[] {
-      if (!x) return [];
-      if (Array.isArray(x)) return x.map(String);
-      // numeric-keyed object: {"0":"FQ-001","1":"FQ-002"}
-      const keys = Object.keys(x);
-      const allNumeric = keys.length > 0 && keys.every((k) => /^\d+$/.test(k));
-      if (allNumeric) {
-        return keys
-          .sort((a, b) => Number(a) - Number(b))
-          .map((k) => String(x[k]));
-      }
-      // fallback: if it's an object with farmerIds property that's a string of comma-separated ids
-      if (typeof x === 'string') {
-        try {
-          const parsed = JSON.parse(x);
-          return toIdArray(parsed);
-        } catch {}
-        return x.split(/[,\s]+/).filter(Boolean);
-      }
-      return [];
+              computedValidations: validations,
+            }),
+          },
+        ],
+        max_tokens: 1024,
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error('[AI] askIntelligence failed:', message);
+      return {
+        summary: `AI request failed: ${message}`,
+        farmerIds: [],
+        sources: [],
+        reasoning: '',
+        rawResponse: message,
+      };
     }
 
-    const normalized: IntelligenceAnswer = {
-      summary: typeof parsed?.summary === 'string'
-        ? parsed.summary
-        : typeof parsed === 'string'
-        ? 'AI returned an unparsed response. See raw output for details.'
-        : (Array.isArray(parsed) ? `Found ${parsed.length} farmers` : ''),
-      farmerIds: toIdArray(parsed?.farmerIds ?? parsed),
-      sources: Array.isArray(parsed?.sources) ? parsed.sources : [],
-      reasoning: typeof parsed?.reasoning === 'string' ? parsed.reasoning : '',
-      details: typeof parsed?.details === 'object' && parsed?.details ? parsed.details : undefined,
-      rawResponse: typeof parsed === 'string' ? parsed : undefined,
-    };
-
-    console.log('[AI] normalized response keys:', Object.keys(normalized), 'farmerIds length', normalized.farmerIds.length);
-
-    // filter to known IDs
+    const normalized = normalizeIntelligenceAnswer(rawResponse);
+    const knownIds = new Set(farmers.map((f) => f.id));
     normalized.farmerIds = normalized.farmerIds.filter((id) => knownIds.has(id));
+
+    if (!normalized.farmerIds.length && !normalized.summary) {
+      normalized.summary = "AI returned a response but could not extract valid farmer IDs.";
+    }
+
+    console.debug('[AI] normalized response', {
+      summary: normalized.summary,
+      farmerIdsCount: normalized.farmerIds.length,
+      sources: normalized.sources,
+    });
 
     return normalized;
   });
@@ -200,7 +292,7 @@ export const suggestDataFix = createServerFn({ method: "POST" })
     if (!farmer) throw new Error(`Farmer ${data.farmerId} not found.`);
     const validation: FarmerValidation = validateFarmer(farmer);
 
-    const parsed = await callFeatherlessJson<AutoFixSuggestion>({
+    const parsed = await callFeatherlessJson<unknown>({
       messages: [
         {
           role: "system",
@@ -220,10 +312,26 @@ export const suggestDataFix = createServerFn({ method: "POST" })
       max_tokens: 512,
     });
 
-    // Basic validation of returned shape
-    if (!parsed || typeof parsed !== "object" || !parsed.summary) {
-      throw new Error("AI returned invalid suggestion format.");
+    if (typeof parsed === "string") {
+      throw new Error(`AI returned invalid suggestion format. Raw response: ${parsed}`);
     }
 
-    return parsed;
+    const result = autoFixSchema.safeParse(parsed);
+    if (!result.success) {
+      throw new Error(`AI returned invalid suggestion format. Raw response: ${JSON.stringify(parsed).slice(0, 2000)}`);
+    }
+
+    const suggestion: AutoFixSuggestion = {
+      summary: result.data.summary,
+      suggestions: result.data.suggestions.map((suggestion) => ({
+        field: suggestion.field,
+        currentValue: suggestion.currentValue,
+        suggestedValue: suggestion.suggestedValue,
+        confidence: suggestion.confidence,
+        rationale: suggestion.rationale,
+      })),
+      requiresHumanReview: result.data.requiresHumanReview,
+    };
+
+    return suggestion;
   });
